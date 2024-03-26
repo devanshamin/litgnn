@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "litgnn"
+version = "0.1.0"
+description = "A package for creating and bechmarking GNN models."
+authors = ["Devansh Amin <devanshamin97@gmail.com>"]
+readme = "README.md"
+repository = "https://github.com/devanshamin/LitGNN"
+
+[tool.poetry.dependencies]
+python = ">=3.8,<3.12"
+pandas = "*"
+click = "^8.1.7"
+rdkit = "^2022.9.5"
+# If you simply put `torch = "2.2.0"`, it will install whole bunch
+# of nvidia cuda libraries that are not required for CPU
+torch = { version = "2.2.0+cpu", source = "pytorch" }
+torch-geometric = "2.5.2"
+pytorch-lightning = "^2.2.1"
+torchmetrics = "^0.11.4"
+
+[[tool.poetry.source]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cpu/"
+priority = "supplemental"
+
+[tool.poetry.dev-dependencies]
+pytest = "*"
+ipykernel = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
