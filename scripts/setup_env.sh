@@ -57,6 +57,6 @@ fi
 
 # Install PyG additional libraries
 # https://github.com/pyg-team/pytorch_geometric?tab=readme-ov-file#additional-libraries
-#poetry run pip install torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-$PYTORCH_VERSION+$HARDWARE.html
+poetry run pip install torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-$PYTORCH_VERSION+$HARDWARE.html
 
 echo "Installation has been successfully completed!" >&1 | tee output.log 2>&1
