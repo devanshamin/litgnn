@@ -1,0 +1,9 @@
+model_cls: CMPNN
+in_channels: ${train.dataset.num_node_features}
+hidden_channels: 300
+out_channels: ???
+edge_dim: ${train.dataset.num_edge_features}
+num_conv_layers: 3
+num_ffn_layers: 2
+communicator_name: mlp
+dropout: 0.0

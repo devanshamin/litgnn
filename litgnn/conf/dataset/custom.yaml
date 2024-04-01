@@ -1,0 +1,4 @@
+dataset_type: custom
+group_key: ???
+dataset_name: null # Used for MoleculeNet and TDC datasets
+target_col_idx: null # Used for Biogen ADME datasets
