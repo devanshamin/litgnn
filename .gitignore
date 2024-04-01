@@ -136,3 +136,4 @@ dask-worker-space
 
 # Custom
 test_*.ipynb
+outputs/
