@@ -1,7 +1,9 @@
 import os
 import os.path as osp
 import re
+import hashlib
 from pathlib import Path
+from functools import partial
 from typing import Callable, Dict, Optional, Union, List
 
 import torch
@@ -22,16 +24,15 @@ class CustomDataset(InMemoryDataset):
         pre_transform: Optional[Callable] = None,
         pre_filter: Optional[Callable] = None,
         force_reload: bool = False,
-        create_mol_graph_from_smiles_fn: Callable = from_smiles,
+        create_graph_from_smiles_fn: Callable = from_smiles,
         **dataset_spec_kwargs
     ) -> None:
         
         groups = get_available_groups()
         dataset_spec_cls = groups.get(group_key)
         assert dataset_spec_cls is not None, f"Invalid group key! Please select one from {list(groups)}."
-        
         self.dataset_spec: CustomDatasetSpec = dataset_spec_cls(**dataset_spec_kwargs)
-        self.create_mol_graph_from_smiles_fn = create_mol_graph_from_smiles_fn
+        self.create_graph_from_smiles_fn = create_graph_from_smiles_fn
         self._split_idx = None # Used when the dataset provides separate files for training and testing
 
         super().__init__(root, transform, pre_transform, pre_filter, force_reload=force_reload)
@@ -65,17 +66,23 @@ class CustomDataset(InMemoryDataset):
     def processed_file_names(self) -> Union[str, List[str]]:
 
         sp = self.dataset_spec
-        uid = f"{sp.dataset_name}_{sp.target_col_idx}"
+        # The uid is made up of variables that are unique to a dataset.
+        # Different variables combination should yield a different dataset.
+        # So, it is crucial to include such variables in the uid.
+        # Example of such variables are 
+        # create_graph_from_smiles_fn, dataset_name, target_col_idx etc.
+        func = self.create_graph_from_smiles_fn
+        uid = "_".join((
+            sp.model_dump_json(),
+            # Captures the kwargs passed to the func if it's a partial func
+            str(func.keywords) if isinstance(func, partial) else "", 
+        ))
+        uid = CustomDataset.create_hash(uid)
         fname = f"data_{uid}.pt"
         if isinstance(sp.file_name, list):
             # Assumes the dataset provides separate files for train and test
             fname = [fname, f"idx_{uid}.pt"]
         return fname
-
-    @staticmethod
-    def _has_download_method(cls, method_name):
-
-        return hasattr(cls, method_name) and callable(getattr(cls, method_name))
 
     def download(self) -> None:
 
@@ -108,7 +115,7 @@ class CustomDataset(InMemoryDataset):
             ys = [float(y) if len(y) > 0 else float("NaN") for y in labels]
             y = torch.tensor(ys, dtype=torch.float).view(1, -1)
 
-            data = self.create_mol_graph_from_smiles_fn(smiles)
+            data = self.create_graph_from_smiles_fn(smiles)
             data.y = y
 
             if self.pre_filter is not None and not self.pre_filter(data):
@@ -143,3 +150,15 @@ class CustomDataset(InMemoryDataset):
     def __repr__(self) -> str:
         
         return f"{self.dataset_spec.display_name}({len(self)})"
+
+    @staticmethod
+    def _has_download_method(cls, method_name):
+
+        return hasattr(cls, method_name) and callable(getattr(cls, method_name))
+
+    @staticmethod
+    def create_hash(input_str: str) -> str:
+
+        hash_object = hashlib.sha256(input_str.encode())
+        hex_dig = hash_object.hexdigest()
+        return hex_dig
