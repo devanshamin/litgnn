@@ -31,8 +31,12 @@ def get_dataloaders(cfg) -> Dict[str, DataLoader]:
         dataset = MoleculeNet(
             root=str(Path.cwd() / ".cache"), 
             name=cfg.dataset.dataset_name,
-            pre_filter=lambda smiles: Chem.MolFromSmiles(smiles) is not None,
-            pre_transform=lambda data: create_mol_graph_from_smiles(data.smiles, data.y)
+            pre_filter=lambda data: Chem.MolFromSmiles(data.smiles) is not None,
+            pre_transform=lambda data: create_mol_graph_from_smiles(
+                smiles=data.smiles, 
+                y=data.y, 
+                atom_messages=cfg.dataset.atom_messages
+            )
         )
 
     cfg.train.dataset.num_node_features = dataset.num_node_features
