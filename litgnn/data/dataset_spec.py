@@ -6,7 +6,7 @@ from typing import Dict, Optional, Union, List, Tuple, ClassVar
 
 import requests
 from tqdm import tqdm
-from pydantic import BaseModel, validator, computed_field
+from pydantic import BaseModel, field_validator, computed_field
 
 
 def get_available_groups() -> Dict[str, "CustomDatasetSpec"]:
@@ -27,7 +27,7 @@ class CustomDatasetSpec(BaseModel):
     file_path: Optional[str] = None
     file_name: Optional[Union[str, List[str]]] = None
 
-    @validator("url", "file_path", check_fields=True)
+    @field_validator("url", "file_path", mode="after", check_fields=True)
     def check_url_file_path(cls, v, values):
         if not v and not values.get("file_path"):
             raise ValueError("Both 'url' and 'file_path' cannot be empty.")
@@ -69,7 +69,7 @@ class BiogenDatasetSpec(CustomDatasetSpec):
         "LOG RLM_CLint (mL/min/kg)": 9,
     }
 
-    @validator("target_col_idx")
+    @field_validator("target_col_idx", mode="after")
     def check_target_col_idx(cls, v, values):
         target_col_idxs = cls.column_to_idx.values()
         if v not in target_col_idxs:
@@ -129,7 +129,7 @@ class TDCADMETDatasetSpec(CustomDatasetSpec):
         "vdss_lombardo"
     )
 
-    @validator("target_col_idx", pre=True, always=True)
+    @field_validator("target_col_idx", mode="after")
     def check_dataset_name(cls, v, values):
         if values.get("dataset_name") not in cls.datasets:
             raise ValueError(f"Invalid dataset name! Please select one from {cls.datasets}")
