@@ -1,7 +1,10 @@
 defaults:
-  - _self_
   - dataset: ???
   - model: ???
+  - _self_
+
+model:
+  pooling_func_name: global_mean_pool
 
 train:
   dataset: 
