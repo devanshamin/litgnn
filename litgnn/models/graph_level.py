@@ -40,9 +40,9 @@ class GraphLevelGNN(nn.Module):
         if num_ffn_layers > 1:
             for _ in range(num_ffn_layers - 1):
                 ffns.extend([
-                    nn.ReLU(), 
                     nn.Dropout(p=dropout), 
-                    nn.Linear(hidden_channels, hidden_channels)
+                    nn.Linear(hidden_channels, hidden_channels),
+                    nn.ReLU(), 
                 ])
         ffns.extend([nn.Dropout(p=dropout), nn.Linear(hidden_channels, out_channels)])
         self.seq = nn.Sequential(*ffns)
@@ -55,7 +55,7 @@ class GraphLevelGNN(nn.Module):
         batch: Tensor
     ) -> Tensor:
 
-        x = self.model(x, edge_index, edge_attr) # num_atoms x hidden_channels 
-        # global_pooling on x to get molecule embeddings
-        x = self.pooling(x, batch) # batch_size x hidden_channels
-        return self.seq(x) # batch_size x out_channels
+        h_atom = self.model(x, edge_index, edge_attr, batch) # num_atoms x hidden_channels 
+        # global_pooling on `h_atom` to get molecule embeddings
+        h_mol = self.pooling(h_atom, batch) # batch_size x hidden_channels
+        return self.seq(h_mol) # batch_size x out_channels
