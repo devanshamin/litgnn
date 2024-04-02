@@ -1,5 +1,7 @@
 import itertools
 from pathlib import Path
+from functools import partial
+from typing import Dict
 
 import torch
 from rdkit import Chem, RDLogger
@@ -14,14 +16,16 @@ from litgnn.models.cmpnn.featurization import atom_features, bond_features
 RDLogger.DisableLog("rdApp.*")
 
 
-def get_dataloaders(cfg):
+def get_dataloaders(cfg) -> Dict[str, DataLoader]:
 
     dataset_type = cfg.dataset.dataset_type
     if dataset_type == "custom":
+        kwargs = {k: v for k, v in cfg.dataset.items() if v}
+        atom_messages = kwargs.pop("atom_messages")
         dataset = CustomDataset(
             root=str(Path.cwd() / ".cache"), 
-            create_mol_graph_from_smiles_fn=create_mol_graph_from_smiles,
-            **{k: v for k, v in cfg.dataset.items() if v}
+            create_graph_from_smiles_fn=partial(create_mol_graph_from_smiles, atom_messages=atom_messages),
+            **kwargs
         )
     elif dataset_type == "molecule_net":
         dataset = MoleculeNet(
@@ -65,7 +69,7 @@ def create_mol_graph_from_smiles(smiles: str, **kwargs) -> Data:
             continue
         e = bond_features(bond)
         edge_indices += [[src, dst], [dst, src]]
-        edge_attrs += [e, e]
+        edge_attrs += [e, e] if kwargs.get("atom_messages") else [x[src].tolist() + e, x[dst].tolist() + e]
     edge_index = torch.tensor(edge_indices).t().to(torch.long).view(2, -1)
     edge_attr = torch.tensor(edge_attrs, dtype=torch.float32)
 
