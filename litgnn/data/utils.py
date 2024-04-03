@@ -21,7 +21,7 @@ def get_dataloaders(cfg) -> Dict[str, DataLoader]:
     dataset_type = cfg.dataset.dataset_type
     if dataset_type == "custom":
         kwargs = {k: v for k, v in cfg.dataset.items() if v}
-        atom_messages = kwargs.pop("atom_messages")
+        atom_messages = kwargs.pop("atom_messages", False)
         dataset = CustomDataset(
             root=str(Path.cwd() / ".cache"), 
             create_graph_from_smiles_fn=partial(create_mol_graph_from_smiles, atom_messages=atom_messages),
