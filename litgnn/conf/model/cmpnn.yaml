@@ -1,6 +1,6 @@
 model_cls: CMPNN
 in_channels: ${train.dataset.num_node_features}
-hidden_channels: 300
+hidden_channels: 128
 out_channels: ???
 edge_dim: ${train.dataset.num_edge_features}
 num_conv_layers: 3

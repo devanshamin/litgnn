@@ -1,7 +1,12 @@
 defaults:
+  - _self_
   - dataset: ???
   - model: ???
-  - _self_
+  - optional optuna_params: ${dataset}_${model}
+  - override hydra/sweeper: optuna
+  - override hydra/sweeper/sampler: tpe
+  - override hydra/job_logging: colorlog
+  - override hydra/hydra_logging: colorlog
 
 model:
   pooling_func_name: global_mean_pool
@@ -14,7 +19,27 @@ train:
     num_edge_features: ???
   batch_size: 32
   epochs: 100
+  early_stopping: 10
+  scheduler:
+    warmup_epochs: 2
+    init_lr: 1e-4
+    max_lr: 1e-3
+    final_lr: 1e-4
   optimizer:
     _target_: torch.optim.Adam
-    lr: 0.0001
-    weight_decay: 0.0005
+    lr: ${train.scheduler.init_lr}
+    weight_decay: 0
+
+optuna_params: null
+
+hydra:
+  sweeper:
+    sampler:
+      seed: 42
+    _target_: hydra_plugins.hydra_optuna_sweeper.optuna_sweeper.OptunaSweeper
+    storage: null
+    direction: minimize
+    study_name: ${model.model_cls}
+    n_trials: 10
+    n_jobs: 1
+    params: ${optuna_params}
