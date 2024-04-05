@@ -8,7 +8,6 @@ import torch.nn.functional as F
 from torch_geometric.typing import Adj
 from torch_geometric.nn import MessagePassing
 from torch_geometric.nn.aggr import MaxAggregation, SumAggregation
-from torch_geometric.nn.inits import reset
 
 
 class CMPNN(nn.Module):
@@ -22,6 +21,7 @@ class CMPNN(nn.Module):
         num_layers: int,
         communicator_name: str,
         dropout: float = 0.0,
+        bias: bool = False
     ) -> None:
         
         super().__init__()
@@ -32,23 +32,25 @@ class CMPNN(nn.Module):
         self.edge_dim = edge_dim
         self.num_layers = num_layers
         self.communicator_name = communicator_name
+        self.dropout = dropout
 
         self.atom_proj = nn.Sequential(
-            nn.Linear(in_channels, hidden_channels),
+            nn.Linear(in_channels, hidden_channels, bias=bias),
             nn.ReLU()
         )
         self.bond_proj = nn.Sequential(
-            nn.Linear(edge_dim, hidden_channels),
+            nn.Linear(edge_dim, hidden_channels, bias=bias),
             nn.ReLU()
         )
         
         self.convs = nn.ModuleList()
-        for _ in range(self.num_layers): 
+        for _ in range(self.num_layers - 1): 
             self.convs.append(
-                GCNEConv(hidden_channels, hidden_channels, communicator_name, dropout)
+                GCNEConv(hidden_channels, hidden_channels, communicator_name, dropout, bias)
             )
+        self.convs.append(GCNConv(hidden_channels, hidden_channels, communicator_name))
 
-        self.lin = nn.Linear(hidden_channels * 3, out_channels)
+        self.lin = nn.Linear(hidden_channels * 3, out_channels, bias=bias)
         self.gru = BatchGRU(hidden_channels)
         self.seq_out = nn.Sequential(
             nn.Linear(hidden_channels * 2, hidden_channels),
@@ -56,17 +58,14 @@ class CMPNN(nn.Module):
             nn.Dropout(p=dropout)
         )
 
-        self.reset_parameters()
+        self.apply(self._init_weights)
 
-    def reset_parameters(self):
-        """Resets all learnable parameters of the module."""
-        
-        reset(self.atom_proj)
-        reset(self.bond_proj)
-        for conv in self.convs:
-            conv.reset_parameters()
-        self.lin.reset_parameters()
-        reset(self.seq_out)
+    def _init_weights(self, module) -> None:
+
+        if isinstance(module, nn.Linear):
+            torch.nn.init.xavier_normal_(module.weight)
+            if module.bias is not None:
+                torch.nn.init.constant_(module.bias, 0)
 
     def forward(
         self, 
@@ -78,14 +77,16 @@ class CMPNN(nn.Module):
         
         x_proj = self.atom_proj(x)
         h_atom = x_proj.clone()
-        h_bond = self.bond_proj(edge_attr)
+        edge_proj = self.bond_proj(edge_attr)
+        h_bond = edge_proj.clone()
         
-        for layer in self.convs[:-1]:
-            h_atom, h_bond = layer(x=h_atom, edge_attr=h_bond, edge_index=edge_index)
-
-        # nth layer message passing
-        aggr_message, _ = self.convs[-1](h_atom, h_bond, edge_index)
-        # aggr_message: Messgage from incoming bonds
+        for i, layer in enumerate(self.convs):
+            if i == len(self.convs) - 1:
+                aggr_message = layer(h_atom, h_bond, edge_index)
+            else:
+                h_atom, h_bond = layer(h_atom, h_bond, edge_index, edge_proj)
+        
+        # aggr_message: Message from incoming bonds
         # h_atom: Current atom's representation
         # x_proj: Atom's initial representation
         h_atom = self.lin(torch.cat([aggr_message, h_atom, x_proj], 1))
@@ -100,7 +101,86 @@ class GCNEConv(MessagePassing):
         in_channels: int,
         out_channels: int,
         communicator_name: str, 
-        dropout: float = 0.0
+        dropout: float = 0.0,
+        bias: bool = False
+    ) -> None:
+        
+        super().__init__(
+            aggr=[SumAggregation(), MaxAggregation()], 
+            aggr_kwargs=dict(mode='message_booster'),
+            flow="target_to_source"
+        )
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.communicator_name = communicator_name
+        self.dropout = dropout
+        self.communicator = NodeEdgeMessageCommunicator(
+            name=communicator_name,
+            hidden_channels=in_channels
+        )
+        self.lin = nn.Linear(in_channels, out_channels, bias=bias)
+
+    def forward(
+        self, 
+        x: Tensor, 
+        edge_attr: Tensor, 
+        edge_index: Adj,
+        edge_proj: Tensor
+    ) -> Tuple[Tensor, Tensor]:
+
+        x = self.propagate(
+            edge_index, 
+            x=x, 
+            edge_attr=edge_attr, 
+            # Aggregation is done on the `edge_attr` based on `edge_index_i`
+            # So the first dimension is not always equal to num_atoms 
+            # i.e., edge_index_i.unique().shape != x.size(0)
+            # The output should be of shape (num_atoms x hidden_channels)
+            # `x.size(0)` will get assigned to `dim_size` that is passed to the
+            # `aggregate` method
+            size=[x.size(0), None] 
+        )
+        edge_attr = self.edge_updater(edge_index, x=x, edge_attr=edge_attr, edge_proj=edge_proj)
+        return x, edge_attr
+    
+    def message(self, edge_attr: Tensor) -> Tensor:
+        return edge_attr
+    
+    def update(self, message: Tensor, x: Tensor) -> Tensor:
+        return self.communicator(message, x)
+
+    def edge_update(
+        self, 
+        x: Tensor, 
+        edge_attr: Tensor, 
+        edge_index_i: Tensor,
+        edge_index_j: Tensor,
+        edge_proj: Tensor
+    ) -> Tensor:
+        
+        # For example,
+        # Atom_0  - [Bond_0] -> Atom_1
+        # Atom_0 <- [Bond_1] -  Atom_1
+        # Bond_0 = Atom_0 - Bond_1
+        edge_attr = x[edge_index_i] - edge_attr[edge_index_j]
+        edge_attr = self.lin(edge_attr)
+        edge_attr = F.dropout(F.relu(edge_proj + edge_attr), p=self.dropout, training=self.training)
+        return edge_attr
+
+    def __repr__(self) -> str:
+        return (
+            f'{self.__class__.__name__}({self.in_channels}, {self.out_channels}, '
+            f"communicator_name='{self.communicator_name}')"
+        )
+
+
+class GCNConv(MessagePassing):
+
+    def __init__(
+        self, 
+        in_channels: int,
+        out_channels: int,
+        communicator_name: str, 
     ) -> None:
         
         super().__init__(
@@ -115,20 +195,6 @@ class GCNEConv(MessagePassing):
             name=communicator_name,
             hidden_channels=in_channels
         )
-        self.seq = nn.Sequential(
-            nn.Linear(in_channels, out_channels),
-            nn.ReLU(),
-            nn.Dropout(p=dropout)
-        )
-
-        self.reset_parameters()
-
-    def reset_parameters(self) -> None:
-        """Resets all learnable parameters of the module."""
-
-        super().reset_parameters()
-        reset(self.communicator)
-        reset(self.seq)
 
     def forward(
         self, 
@@ -149,31 +215,13 @@ class GCNEConv(MessagePassing):
             # `aggregate` method
             size=[x.size(0), None] 
         )
-        edge_attr = self.edge_updater(edge_index, x=x, edge_attr=edge_attr)
-        return x, edge_attr
+        return x
     
     def message(self, edge_attr: Tensor) -> Tensor:
-
         return edge_attr
     
     def update(self, message: Tensor, x: Tensor) -> Tensor:
-
         return self.communicator(message, x)
-
-    def edge_update(
-        self, 
-        x: Tensor, 
-        edge_attr: Tensor, 
-        edge_index_i: Tensor,
-        edge_index_j: Tensor
-    ) -> Tensor:
-        
-        # For example,
-        # Atom_0  - [Bond_0] -> Atom_1
-        # Atom_0 <- [Bond_1] -  Atom_1
-        # Bond_0 = Atom_0 - Bond_1
-        bond_embed = x[edge_index_i] - edge_attr[edge_index_j]
-        return self.seq(bond_embed)
 
     def __repr__(self) -> str:
         return (
@@ -203,7 +251,7 @@ class NodeEdgeMessageCommunicator(nn.Module):
                 nn.Linear(hidden_channels * 2, hidden_channels),
                 nn.ReLU()
             )
-    
+
     def forward(self, message: Tensor, hidden_state: Tensor) -> Tensor:
 
         if self.name == "additive":
@@ -232,11 +280,6 @@ class BatchGRU(nn.Module):
         self.hidden_channels = hidden_channels
         self.gru = nn.GRU(hidden_channels, hidden_channels, num_layers=num_layers, batch_first=True, bidirectional=True)
         self.bias = nn.Parameter(torch.Tensor(hidden_channels))
-
-        self.reset_parameters()
-
-    def reset_parameters(self):
-
         self.bias.data.uniform_(
             -1.0 / math.sqrt(self.hidden_channels), 
             1.0 / math.sqrt(self.hidden_channels)
