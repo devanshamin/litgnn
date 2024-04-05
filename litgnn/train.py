@@ -1,12 +1,15 @@
 import warnings
 import logging
+from pathlib import Path
+from typing import Optional, Dict
 
 import torch
-import torch.nn as nn
 from tqdm import tqdm
 import hydra
+from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
-from torchmetrics.classification import AUROC
+from hydra.utils import instantiate as hydra_instantiate
+from torchmetrics.metric import Metric
 
 from litgnn.utils import NoamLR
 from litgnn.data.utils import get_dataloaders
@@ -14,14 +17,10 @@ from litgnn.models.graph_level import GraphLevelGNN
 
 warnings.filterwarnings("ignore")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-# Configure logger
-log_format = "%(asctime)s | %(levelname)s | [%(filename)s:%(funcName)s:%(lineno)d] | %(message)s"
-logging.basicConfig(format=log_format, level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
 logger = logging.getLogger(__name__)
 
 
-def train(dataloader, model, optimizer, scheduler, loss_func):
+def train(dataloader, model, optimizer, scheduler, loss_fn):
 
     loss_sum = 0.0
     for batch in tqdm(dataloader, desc="Training", total=len(dataloader), leave=False):
@@ -33,18 +32,20 @@ def train(dataloader, model, optimizer, scheduler, loss_func):
             edge_attr=batch.edge_attr,
             batch=batch.batch
         )
-        loss = loss_func(preds, batch.y)
+        loss = loss_fn(preds, batch.y)
         loss.backward()
         optimizer.step()
         scheduler.step()
         loss_sum += loss.item()
     return loss_sum / len(dataloader)
 
+
 @torch.inference_mode()
-def evaluate(dataloader, model, loss_func, callable_metric=None):
+def evaluate(dataloader, model, loss_fn, metric_fns: Optional[Dict[str, Metric]] = None):
 
     loss_sum = 0.0
-    metric = 0.0
+    metrics = {}
+
     for batch in tqdm(dataloader, desc="Evaluating", total=len(dataloader), leave=False):
         batch = batch.to(DEVICE)
         preds = model(
@@ -53,11 +54,21 @@ def evaluate(dataloader, model, loss_func, callable_metric=None):
             edge_attr=batch.edge_attr,
             batch=batch.batch
         )
-        loss = loss_func(preds, batch.y)
-        if callable_metric is not None:
-            metric += callable_metric(preds, batch.y).item()
+        loss = loss_fn(preds, batch.y)
+        if metric_fns is not None:
+            for fn in metric_fns.values():
+                fn(preds, batch.y) # Accumulate metrics
         loss_sum += loss.item() 
-    return loss_sum / len(dataloader), metric / len(dataloader)
+    
+    if metric_fns is not None:
+        for metric, fn in metric_fns.items():
+            # Compute metric on all batches
+            metrics[metric] = fn.compute()
+            # Reset internal state such that metric ready for new data
+            fn.reset()
+
+    return loss_sum / len(dataloader), metrics
+
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def run(cfg: DictConfig) -> float:
@@ -70,7 +81,7 @@ def run(cfg: DictConfig) -> float:
     num_params = sum(param.numel() for param in model.parameters() if param.requires_grad)
     logger.info(f"No. of model parameters: {num_params:,}")
     logger.info(model)
-    optimizer = hydra.utils.instantiate(cfg.train.optimizer, params=model.parameters(), _recursive_=False)
+    optimizer = hydra_instantiate(cfg.train.optimizer, params=model.parameters(), _recursive_=False)
     scheduler = NoamLR(
         optimizer=optimizer,
         warmup_epochs=[cfg.train.scheduler.warmup_epochs],
@@ -80,30 +91,42 @@ def run(cfg: DictConfig) -> float:
         max_lr=[cfg.train.scheduler.max_lr],
         final_lr=[cfg.train.scheduler.final_lr]
     )
-    loss_func = nn.BCEWithLogitsLoss()
+    loss_fn = hydra_instantiate(cfg.task.loss_fn)
+    metric_fns = {k: hydra_instantiate(v) for k, v in cfg.task.metrics.items()}
+    get_metrics_str = lambda prefix, metrics: " | ".join(f"{prefix} {k}={v:.3f}" for k, v in metrics.items())
     
-    best_model, best_loss = None, torch.inf
+    best_model, best_val_loss = None, torch.inf
     er_counter = 0
     for epoch in range(cfg.train.epochs):
-        train_loss = train(dataloaders["train"], model, optimizer, scheduler, loss_func)
-        val_loss, _ = evaluate(dataloaders["val"], model, loss_func)
-        if val_loss < best_loss:
-            best_loss = val_loss
+        train_loss = train(dataloaders["train"], model, optimizer, scheduler, loss_fn)
+        val_loss, metrics = evaluate(dataloaders["val"], model, loss_fn, metric_fns)
+        logger.info(
+            f"Epoch {epoch:<3} | Train loss={train_loss:.3f} | Valid loss={val_loss:.3f} | "
+            + get_metrics_str("Valid", metrics)
+        )
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
             best_model = model
             er_counter = 0
         else:
             er_counter += 1
-        logger.info(f"Epoch {epoch} | Train loss={train_loss:.3f} | Valid loss={val_loss:.3f}")
-
         if er_counter == cfg.train.early_stopping:
             break
 
-    auroc = AUROC(task="binary")
-    test_loss, metric = evaluate(dataloaders["test"], best_model, loss_func, callable_metric=auroc)
-    name = auroc.__class__.__name__
-    logger.info(f"Test loss={test_loss:.3f} | {name}={metric:.3f}")
+    test_loss, metrics = evaluate(dataloaders["test"], best_model, loss_fn, metric_fns)
+    logger.info(f"Test loss={test_loss:.3f} | " + get_metrics_str("Test", metrics))
 
-    return best_loss # For hydra optuna sweep
+    output_dir = HydraConfig.get().runtime.output_dir
+    save_obj = dict(
+        cfg=cfg, 
+        state_dict=model.state_dict(), 
+        best_val_loss=best_val_loss, 
+        test_loss=test_loss,
+        metrics=metrics
+    )
+    torch.save(save_obj, Path(output_dir, "model.pt"))
+
+    return best_val_loss # For hydra optuna sweep
 
 
 if __name__ == "__main__":

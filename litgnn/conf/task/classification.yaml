@@ -1,0 +1,7 @@
+loss_fn:
+  _target_: torch.nn.BCEWithLogitsLoss
+
+metrics:
+  auroc:
+    _target_: torchmetrics.AUROC
+    task: ???

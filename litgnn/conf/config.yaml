@@ -2,11 +2,11 @@ defaults:
   - _self_
   - dataset: ???
   - model: ???
+  - task: ???
   - optional optuna_params: ${dataset}_${model}
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
-  - override hydra/job_logging: colorlog
-  - override hydra/hydra_logging: colorlog
+  - override hydra/job_logging: custom
 
 model:
   pooling_func_name: global_mean_pool
