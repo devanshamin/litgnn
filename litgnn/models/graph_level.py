@@ -1,3 +1,4 @@
+import torch
 from torch import Tensor
 import torch.nn as nn
 from torch_geometric.nn import pool as global_pooling
@@ -19,7 +20,7 @@ class GraphLevelGNN(nn.Module):
         communicator_name: str,
         num_ffn_layers: int = 1,
         dropout: float = 0.0,
-        pooling_func_name: str = "global_add_pool"
+        pooling_func_name: str = "global_mean_pool"
     ) -> None:
         
         super().__init__()
@@ -46,6 +47,15 @@ class GraphLevelGNN(nn.Module):
                 ])
         ffns.extend([nn.Dropout(p=dropout), nn.Linear(hidden_channels, out_channels)])
         self.seq = nn.Sequential(*ffns)
+    
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module) -> None:
+
+        if isinstance(module, nn.Linear):
+            torch.nn.init.xavier_normal_(module.weight)
+            if module.bias is not None:
+                torch.nn.init.constant_(module.bias, 0)
 
     def forward(
         self, 
