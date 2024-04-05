@@ -1,3 +1,4 @@
+import logging
 import itertools
 from pathlib import Path
 from functools import partial
@@ -14,6 +15,7 @@ from litgnn.data.custom_dataset import CustomDataset
 from litgnn.models.cmpnn.featurization import atom_features, bond_features
 
 RDLogger.DisableLog("rdApp.*")
+logger = logging.getLogger(__name__)
 
 
 def get_dataloaders(cfg) -> Dict[str, DataLoader]:
@@ -49,9 +51,9 @@ def get_dataloaders(cfg) -> Dict[str, DataLoader]:
         splits = split_func(train_val_dataset, split_sizes=split_sizes, balanced=True, verbose=0)
         splits["val"] += splits["test"]
         splits["test"] = dataset.index_select(split_idx["test"])
-        print(
-            f'\nTotal samples = {len(train_val_dataset) + len(split_idx["test"]):,} |',
-            " | ".join(f'{s.capitalize()} set = {len(d):,}' for s, d in splits.items())
+        logger.info(
+            f'Total samples = {len(train_val_dataset) + len(split_idx["test"]):,} | '
+            + " | ".join(f'{s.capitalize()} set = {len(d):,}' for s, d in splits.items())
         )
     else:
         splits = split_func(dataset, split_sizes=split_sizes, balanced=True, verbose=1)
