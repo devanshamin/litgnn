@@ -1,0 +1,6 @@
+loss_fn:
+  _target_: torch.nn.MSELoss
+
+metrics:
+  mae:
+    _target_: torchmetrics.MeanAbsoluteError
