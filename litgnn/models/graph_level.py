@@ -17,10 +17,10 @@ class GraphLevelGNN(nn.Module):
         out_channels: int,
         edge_dim: int,
         num_conv_layers: int,
-        communicator_name: str,
         num_ffn_layers: int = 1,
         dropout: float = 0.0,
-        pooling_func_name: str = "global_mean_pool"
+        pooling_func_name: str = "global_mean_pool",
+        **model_kwargs
     ) -> None:
         
         super().__init__()
@@ -34,8 +34,8 @@ class GraphLevelGNN(nn.Module):
             out_channels=hidden_channels,
             edge_dim=edge_dim,
             num_layers=num_conv_layers,
-            communicator_name=communicator_name,
-            dropout=dropout
+            dropout=dropout,
+            **model_kwargs
         )
         ffns = []
         if num_ffn_layers > 1:
