@@ -3,8 +3,6 @@ defaults:
   - dataset: ???
   - model: ???
   - task: ???
-  - optional optuna_params: ${dataset}_${model}
-  - override hydra/sweeper: optuna
   - override hydra/job_logging: custom
 
 model:
@@ -34,18 +32,3 @@ train:
     _target_: torch.optim.Adam
     lr: ${train.scheduler.init_lr[0]}
     weight_decay: 0
-
-optuna_params: null
-
-hydra:
-  sweeper:
-    sampler:
-      _target_: optuna.samplers.TPESampler
-      seed: 42
-    _target_: hydra_plugins.hydra_optuna_sweeper.optuna_sweeper.OptunaSweeper
-    storage: null
-    direction: minimize
-    study_name: ${model.model_cls}
-    n_trials: 10
-    n_jobs: 1
-    params: ${optuna_params}
