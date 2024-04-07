@@ -1,5 +1,5 @@
 import math
-from typing import Literal, Tuple
+from typing import Literal, Tuple, List
 
 import torch
 from torch import Tensor
@@ -75,23 +75,23 @@ class CMPNN(nn.Module):
         batch: Tensor
     ) -> Tensor:
         
-        x_proj = self.atom_proj(x)
-        h_atom = x_proj.clone()
-        edge_proj = self.bond_proj(edge_attr)
-        h_bond = edge_proj.clone()
+        init_atom_embed = self.atom_proj(x)
+        atom_embed = init_atom_embed.clone()
+        init_bond_embed = self.bond_proj(edge_attr)
+        bond_embed = init_bond_embed.clone()
         
         for i, layer in enumerate(self.convs):
             if i == len(self.convs) - 1:
-                aggr_message = layer(h_atom, h_bond, edge_index)
+                aggr_message = layer(atom_embed, bond_embed, edge_index)
             else:
-                h_atom, h_bond = layer(h_atom, h_bond, edge_index, edge_proj)
+                atom_embed, bond_embed = layer(atom_embed, bond_embed, edge_index, init_bond_embed)
         
-        # aggr_message: Message from incoming bonds
-        # h_atom: Current atom's representation
-        # x_proj: Atom's initial representation
-        h_atom = self.lin(torch.cat([aggr_message, h_atom, x_proj], 1))
-        h_atom = self.gru(h_atom, batch)
-        return self.seq_out(h_atom)
+        # `aggr_message`: Message from incoming bonds
+        # `atom_embed`: Current atom's representation
+        # `init_atom_embed`: Atom's initial representation
+        atom_embed = self.lin(torch.cat([aggr_message, atom_embed, init_atom_embed], 1))
+        atom_embed = self.gru(atom_embed, batch)
+        return self.seq_out(atom_embed)
 
 
 class GCNEConv(MessagePassing):
@@ -107,8 +107,7 @@ class GCNEConv(MessagePassing):
         
         super().__init__(
             aggr=[SumAggregation(), MaxAggregation()], 
-            aggr_kwargs=dict(mode='message_booster'),
-            flow="target_to_source"
+            aggr_kwargs=dict(mode="message_booster"),
         )
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -125,22 +124,21 @@ class GCNEConv(MessagePassing):
         x: Tensor, 
         edge_attr: Tensor, 
         edge_index: Adj,
-        edge_proj: Tensor
+        init_edge_embed: Tensor
     ) -> Tuple[Tensor, Tensor]:
 
         x = self.propagate(
             edge_index, 
             x=x, 
             edge_attr=edge_attr, 
-            # Aggregation is done on the `edge_attr` based on `edge_index_i`
-            # So the first dimension is not always equal to num_atoms 
-            # i.e., edge_index_i.unique().shape != x.size(0)
-            # The output should be of shape (num_atoms x hidden_channels)
-            # `x.size(0)` will get assigned to `dim_size` that is passed to the
-            # `aggregate` method
+            # Aggregation is done on the `edge_attr` based on index(`edge_index_i`).
+            # The output of the aggregation should be of the shape (num_atoms x hidden_channels).
+            # To have this output, we pass the expected `dim_size` in the `size` variable.
+            # In the `_collect` method, `x.size(0)` will be assigned to `dim_size` and 
+            # will get passed to the `aggregate` method.
             size=[x.size(0), None] 
         )
-        edge_attr = self.edge_updater(edge_index, x=x, edge_attr=edge_attr, edge_proj=edge_proj)
+        edge_attr = self.edge_updater(edge_index, x=x, edge_attr=edge_attr, init_edge_embed=init_edge_embed)
         return x, edge_attr
     
     def message(self, edge_attr: Tensor) -> Tensor:
@@ -152,19 +150,19 @@ class GCNEConv(MessagePassing):
     def edge_update(
         self, 
         x: Tensor, 
+        edge_index: Tensor,
         edge_attr: Tensor, 
-        edge_index_i: Tensor,
-        edge_index_j: Tensor,
-        edge_proj: Tensor
+        init_edge_embed: Tensor
     ) -> Tensor:
-        
-        # For example,
-        # Atom_0  - [Bond_0] -> Atom_1
-        # Atom_0 <- [Bond_1] -  Atom_1
-        # Bond_0 = Atom_0 - Bond_1
-        edge_attr = x[edge_index_i] - edge_attr[edge_index_j]
+
+        rev_edge_index = GCNEConv.get_reverse_edge_index(num_edges=edge_attr.size(0))
+        rev_edge_index = torch.tensor(rev_edge_index, device=edge_attr.device, dtype=torch.long)
+        # Avoid using `x_i` or `x_j` instead of `x`, since `x_*` depends on the 
+        # `self.flow` (source_to_target or target_to_source) and determines the i and j
+        # values. 
+        edge_attr = x[edge_index[0]] - edge_attr[rev_edge_index]
         edge_attr = self.lin(edge_attr)
-        edge_attr = F.dropout(F.relu(edge_proj + edge_attr), p=self.dropout, training=self.training)
+        edge_attr = F.dropout(F.relu(init_edge_embed + edge_attr), p=self.dropout, training=self.training)
         return edge_attr
 
     def __repr__(self) -> str:
@@ -172,6 +170,14 @@ class GCNEConv(MessagePassing):
             f'{self.__class__.__name__}({self.in_channels}, {self.out_channels}, '
             f"communicator_name='{self.communicator_name}')"
         )
+    
+    @staticmethod
+    def get_reverse_edge_index(num_edges: int) -> List[int]:
+        
+        l = []
+        for i in range(int(num_edges / 2)):
+            l.extend([i*2+1, i*2])
+        return l
 
 
 class GCNConv(MessagePassing):
@@ -185,8 +191,7 @@ class GCNConv(MessagePassing):
         
         super().__init__(
             aggr=[SumAggregation(), MaxAggregation()], 
-            aggr_kwargs=dict(mode='message_booster'),
-            flow="target_to_source"
+            aggr_kwargs=dict(mode="message_booster"),
         )
         self.in_channels = in_channels
         self.out_channels = out_channels
