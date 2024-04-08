@@ -46,7 +46,7 @@ class GraphLevelGNN(nn.Module):
                     nn.ReLU(), 
                 ])
         ffns.extend([nn.Dropout(p=dropout), nn.Linear(hidden_channels, out_channels)])
-        self.seq = nn.Sequential(*ffns)
+        self.seq_out = nn.Sequential(*ffns)
     
         self.apply(self._init_weights)
 
@@ -68,4 +68,4 @@ class GraphLevelGNN(nn.Module):
         h_atom = self.model(x, edge_index, edge_attr, batch) # num_atoms x hidden_channels 
         # global_pooling on `h_atom` to get molecule embeddings
         h_mol = self.pooling(h_atom, batch) # batch_size x hidden_channels
-        return self.seq(h_mol) # batch_size x out_channels
+        return self.seq_out(h_mol) # batch_size x out_channels
