@@ -1,8 +1,12 @@
-from typing import List, Union
+import logging
+import time
+from typing import List, Union, Callable
 
 import numpy as np
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
+
+logger = logging.getLogger()
 
 
 class NoamLR(_LRScheduler):
@@ -79,3 +83,15 @@ class NoamLR(_LRScheduler):
                 self.lr[i] = self.final_lr[i]
 
             self.optimizer.param_groups[i]['lr'] = self.lr[i]
+
+
+def profile_execution(func: Callable) -> Callable:
+
+    def wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        execution_time = time.perf_counter() - start_time
+        logger.info(f"Function '{func.__name__}' executed in {execution_time:.4f} seconds.")
+        return result
+    
+    return wrapper

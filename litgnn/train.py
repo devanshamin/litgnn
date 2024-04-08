@@ -1,7 +1,7 @@
 import warnings
 import logging
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Optional, Dict, Tuple
 
 import torch
 import numpy as np
@@ -15,6 +15,7 @@ from torchmetrics.metric import Metric
 from pytorch_lightning import seed_everything
 
 from litgnn.data.utils import get_dataloaders
+from litgnn.utils import profile_execution
 
 warnings.filterwarnings("ignore")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -71,7 +72,8 @@ def evaluate(dataloader, model, loss_fn, metric_fns: Optional[Dict[str, Metric]]
     return loss_sum / len(dataloader), metrics
 
 
-def _run(cfg):
+@profile_execution
+def _run(cfg) -> Tuple[float, Dict[str, float]]:
 
     seed = cfg.train.seed
     seed_everything(seed, workers=True)
@@ -80,6 +82,7 @@ def _run(cfg):
     logger.info(OmegaConf.to_yaml(cfg))
     
     model = hydra_instantiate(cfg.model).to(device)
+    model = torch.compile(model, dynamic=True)
     optimizer = hydra_instantiate(cfg.train.optimizer, params=model.parameters(), _recursive_=False)
     scheduler = hydra_instantiate(
         cfg.train.scheduler,
