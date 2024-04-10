@@ -1,7 +1,10 @@
 import random
+import logging
 from typing import Dict, Tuple
 
 from torch_geometric.data import Dataset
+
+logger = logging.getLogger()
 
 
 def random_split(
@@ -26,7 +29,7 @@ def random_split(
     )
     
     if verbose:
-        print(
+        logger.info(
             f'\nTotal samples = {len(dataset):,} |',
             " | ".join(f'{s.capitalize()} set = {len(d):,}' for s, d in splits.items())
         )

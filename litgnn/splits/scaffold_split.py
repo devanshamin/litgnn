@@ -1,11 +1,14 @@
 import os
 import random
+import logging
 from typing import Dict, Set, Tuple
 from multiprocessing import Pool
 
 from rdkit import Chem
 from rdkit.Chem.Scaffolds import MurckoScaffold
 from torch_geometric.data import Dataset
+
+logger = logging.getLogger()
 
 
 def _get_scaffold(smiles: str, include_chirality: bool) -> str:
@@ -74,7 +77,7 @@ def scaffold_split(
     )
     
     if verbose:
-        print(
+        logger.info(
             f'Total scaffolds = {len(scaffold_to_indices):,} | '
             f'Train scaffolds = {train_scaffold_count:,} | '
             f'Val scaffolds = {val_scaffold_count:,} | '
