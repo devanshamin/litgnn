@@ -138,3 +138,5 @@ dask-worker-space
 test_*.ipynb
 outputs/
 multirun/
+lightning_logs/
+wandb/
