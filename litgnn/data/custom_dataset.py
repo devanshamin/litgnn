@@ -41,7 +41,12 @@ class CustomDataset(InMemoryDataset):
         self.load(self.processed_paths[0])
         if len(self.processed_paths) > 1:
             self._split_idx = torch.load(self.processed_paths[1])
-        
+    
+    @property
+    def dataset_name(self) -> str:
+
+        return self.dataset_spec.dataset_name
+
     @property
     def train_test_split_idx(self) -> Optional[Dict[str, range]]:
 

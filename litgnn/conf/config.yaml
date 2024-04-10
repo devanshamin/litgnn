@@ -12,22 +12,49 @@ model:
 train:
   num_seed_runs: 5  # No. of times to run the train-test split with different seeds
   seed: 1
+  batch_size: 32
+
   dataset: 
     split: scaffold_split
     split_sizes: [0.8, 0.1, 0.1]
     num_node_features: ???
     num_edge_features: ???
-  batch_size: 32
-  epochs: 100
-  early_stopping: 10
+  
+  trainer:
+    _target_: pytorch_lightning.Trainer
+    accelerator: gpu
+    devices: auto
+    max_epochs: 100
+    log_every_n_steps: 10
+    logger:
+      _target_: pytorch_lightning.loggers.WandbLogger
+      project: LitGNN
+      group: ${model.model_cls} # i.e., CMPNN
+      job_type: ${dataset.dataset_type}-${dataset.dataset_name} # i.e., molecule_net-bbbp
+      name: Seed_${train.seed} # i.e., Seed_1, Seed_2
+      dir: wandb
+    callbacks:
+      - _target_: pytorch_lightning.callbacks.RichProgressBar
+      - _target_: pytorch_lightning.callbacks.ModelCheckpoint
+        monitor: val_loss
+        mode: min
+        save_top_k: 1
+        filename: '{epoch:02d}-{val_loss:.4f}'
+      - _target_: pytorch_lightning.callbacks.EarlyStopping
+        monitor: val_loss
+        mode: min
+        patience: 10
+  
   scheduler:
     _target_: litgnn.utils.NoamLR
     warmup_epochs: [2]
     total_epochs: 
-      - ${train.epochs}
+      - ${train.trainer.max_epochs}
     init_lr: [1e-4]
     max_lr: [1e-3]
     final_lr: [1e-4]
+    steps_per_epoch: ???
+  
   optimizer:
     _target_: torch.optim.Adam
     lr: ${train.scheduler.init_lr[0]}
