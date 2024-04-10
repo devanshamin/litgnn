@@ -2,27 +2,26 @@ import logging
 import itertools
 from pathlib import Path
 from functools import partial
-from typing import Dict
+from typing import Dict, List
 
 import torch
 from rdkit import Chem, RDLogger
-from torch_geometric.data import Data
+from torch_geometric.data import Data, Dataset
 from torch_geometric.datasets import MoleculeNet
-from torch_geometric.loader import DataLoader
 
 from litgnn import splits as dataset_splits
 from litgnn.data.custom_dataset import CustomDataset
 from litgnn.models.cmpnn.featurization import atom_features, bond_features
 
 RDLogger.DisableLog("rdApp.*")
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 
-def get_dataloaders(cfg) -> Dict[str, DataLoader]:
+def load_dataset(dataset_config) -> Dataset:
 
-    dataset_type = cfg.dataset.dataset_type
+    dataset_type = dataset_config.dataset_type
     if dataset_type == "custom":
-        kwargs = {k: v for k, v in cfg.dataset.items() if v}
+        kwargs = {k: v for k, v in dataset_config.items() if v}
         atom_messages = kwargs.pop("atom_messages", False)
         dataset = CustomDataset(
             root=str(Path.cwd() / ".cache"), 
@@ -32,37 +31,43 @@ def get_dataloaders(cfg) -> Dict[str, DataLoader]:
     elif dataset_type == "molecule_net":
         dataset = MoleculeNet(
             root=str(Path.cwd() / ".cache"), 
-            name=cfg.dataset.dataset_name,
+            name=dataset_config.dataset_name,
             pre_filter=lambda data: Chem.MolFromSmiles(data.smiles) is not None,
             pre_transform=lambda data: create_mol_graph_from_smiles(
                 smiles=data.smiles, 
                 y=data.y, 
-                atom_messages=cfg.dataset.atom_messages
+                atom_messages=dataset_config.atom_messages
             )
         )
+    else:
+        raise ValueError(f"Invalid dataset type '{dataset_type}'!")
+    return dataset
 
-    cfg.train.dataset.num_node_features = dataset.num_node_features
-    cfg.train.dataset.num_edge_features = dataset.num_edge_features
 
-    split_func = getattr(dataset_splits, cfg.train.dataset.split)
-    split_sizes = cfg.train.dataset.split_sizes
+def get_dataset_splits(
+    dataset: Dataset, 
+    *, 
+    split: str, 
+    split_sizes: List[float],
+    verbose: bool = False
+) -> Dict[str, Dataset]:
+
+    split_func = getattr(dataset_splits, split, None)
+    assert split_func is not None, f"Invalid split '{split}'!"
     if hasattr(dataset, "train_test_split_idx") and (split_idx := dataset.train_test_split_idx):
         train_val_dataset = dataset.index_select(split_idx["train_val"])
         splits = split_func(train_val_dataset, split_sizes=split_sizes, balanced=True, verbose=0)
         splits["val"] += splits["test"]
         splits["test"] = dataset.index_select(split_idx["test"])
-        logger.info(
-            f'Total samples = {len(train_val_dataset) + len(split_idx["test"]):,} | '
-            + " | ".join(f'{s.capitalize()} set = {len(d):,}' for s, d in splits.items())
-        )
+        if verbose:
+            logger.info(
+                f'Total samples = {len(train_val_dataset) + len(split_idx["test"]):,} | '
+                + " | ".join(f'{s.capitalize()} set = {len(d):,}' for s, d in splits.items())
+            )
     else:
-        splits = split_func(dataset, split_sizes=split_sizes, balanced=True, verbose=1)
-    
-    dataloaders = {
-        split: DataLoader(data, batch_size=cfg.train.batch_size, shuffle=split=="train", pin_memory=True)
-        for split, data in splits.items()
-    }
-    return dataloaders
+        splits = split_func(dataset, split_sizes=split_sizes, balanced=True, verbose=verbose)
+
+    return splits
 
 
 def create_mol_graph_from_smiles(smiles: str, **kwargs) -> Data:

@@ -1,4 +1,4 @@
-loss_fn:
+loss:
   _target_: torch.nn.BCEWithLogitsLoss
 
 metrics:
