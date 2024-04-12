@@ -65,7 +65,10 @@ class GraphLevelGNN(nn.Module):
         batch: Tensor
     ) -> Tensor:
 
-        h_atom = self.model(x, edge_index, edge_attr, batch) # num_atoms x hidden_channels 
-        # global_pooling on `h_atom` to get molecule embeddings
-        h_mol = self.pooling(h_atom, batch) # batch_size x hidden_channels
-        return self.seq_out(h_mol) # batch_size x out_channels
+        out = self.model(x=x, edge_index=edge_index, edge_attr=edge_attr, batch=batch)
+        if out.shape[0] == x.shape[0]:
+            # out -> num_atoms x hidden_channels
+            # Apply global pooling on `out` to get molecule embeddings
+            out = self.pooling(out, batch) # batch_size x hidden_channels
+
+        return self.seq_out(out) # batch_size x out_channels
