@@ -1,5 +1,5 @@
 import os
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 import pytorch_lightning as L
 from torch_geometric.loader import DataLoader
@@ -30,27 +30,28 @@ class LitDataModule(L.LightningDataModule):
     def num_node_features(self) -> int:
         
         if self._dataset is None:
-            self.setup(stage="fit")
+            self.setup()
         return self._dataset.num_node_features
     
     @property
     def num_edge_features(self) -> int:
         
         if self._dataset is None:
-            self.setup(stage="fit")
+            self.setup()
         return self._dataset.num_edge_features
 
     @property
     def num_train_steps_per_epoch(self) -> int:
         
         if self._splits is None:
-            self.setup(stage="fit")
+            self.setup()
         return len(self.train_dataloader())
 
-    def setup(self, stage: str) -> None:
+    def setup(self, stage: Optional[str] = None) -> None:
         
-        self._dataset = load_dataset(self.dataset_config)
-        self._splits = get_dataset_splits(self._dataset, split=self.split, split_sizes=self.split_sizes)
+        if self._dataset is None:
+            self._dataset = load_dataset(self.dataset_config)
+            self._splits = get_dataset_splits(self._dataset, split=self.split, split_sizes=self.split_sizes)
 
     def train_dataloader(self) -> DataLoader:
         
