@@ -19,7 +19,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 from litgnn.data.data_module import LitDataModule
 from litgnn.models.lit_model import LitGNNModel
-from litgnn.utils import profile_execution
+from litgnn.utils import profile_execution, pre_init_model_setup
 
 warnings.filterwarnings("ignore")
 logger = logging.getLogger(__name__)
@@ -50,11 +50,12 @@ def run(cfg) -> Tuple[float, Dict[str, float]]:
     if cfg.dataset.dataset_type == "custom":
         # Add group key as the `wandb` job name prefix instead of 'custom'
         cfg.train.trainer.logger.job_type = f"{cfg.dataset.group_key}-{cfg.dataset.dataset_name}"
-    
+
     # Resolve all variable interpolations
     OmegaConf.resolve(cfg)
     # logger.info(OmegaConf.to_yaml(cfg))
 
+    pre_init_model_setup(model_config=cfg.model, data_module=data_module)
     lit_model = LitGNNModel(model_config=cfg.model, train_config=cfg.train, task_config=cfg.task)
     assert cfg.train.trainer.accelerator == "gpu" and torch.cuda.is_available(), \
         "GPU acceleration is requested but CUDA is not available."

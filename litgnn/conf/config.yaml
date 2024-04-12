@@ -7,6 +7,7 @@ defaults:
 
 model:
   _target_: litgnn.models.graph_level.GraphLevelGNN
+  num_ffn_layers: 2
   pooling_func_name: global_mean_pool
 
 train:

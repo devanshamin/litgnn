@@ -1,0 +1,4 @@
+model.num_conv_layers: range(2, 6, step=1)
+model.hidden_channels: choice(64, 128, 256)
+model.num_timesteps: range(1, 5, step=1)
+train.batch_size: choice(16, 32, 64, 128)

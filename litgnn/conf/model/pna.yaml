@@ -1,0 +1,13 @@
+model_cls: PNA
+in_channels: ${train.dataset.num_node_features}
+hidden_channels: 64
+out_channels: ???
+edge_dim: ${train.dataset.num_edge_features}
+num_conv_layers: 3
+dropout: 0.0
+towers: 4 # No. of tower containing linear layers (pre_layers & post_layers)
+pre_layers: 1 # No. of linear layers before aggegration
+post_layers: 1 # No. of linear layers after aggegration
+deg: null # Will be automatically populated
+aggregators: ["mean", "min", "max", "std"]
+scalers: ["identity", "amplification", "attenuation"]

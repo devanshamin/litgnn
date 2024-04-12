@@ -3,8 +3,11 @@ import time
 from typing import List, Union, Callable
 
 import numpy as np
+from litgnn import models
+from omegaconf import DictConfig
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
+from litgnn.data.data_module import LitDataModule
 
 logger = logging.getLogger()
 
@@ -95,3 +98,15 @@ def profile_execution(func: Callable) -> Callable:
         return result
     
     return wrapper
+
+
+def pre_init_model_setup(model_config: DictConfig, data_module: LitDataModule) -> None:
+
+    model_cls = model_config.model_cls
+    if model_cls == "PNA":
+        if data_module._splits is None:
+            data_module.setup()
+        cls = getattr(models, model_cls)
+        cls.compute_degree(dataloader=data_module.train_dataloader())
+
+    return None
