@@ -19,7 +19,7 @@ class LitGNNModel(L.LightningModule):
         self.save_hyperparameters()
         self.task_config = task_config
         self.train_config = train_config
-        self.model = hydra_instantiate(model_config)
+        self.model = hydra_instantiate(model_config, _convert_="all")
         self.loss_func = hydra_instantiate(self.task_config.loss)
         self._step_to_metrics = {
             step: {k: hydra_instantiate(v).to(self.device) for k, v in self.task_config.metrics.items()}
@@ -28,8 +28,13 @@ class LitGNNModel(L.LightningModule):
 
     def configure_optimizers(self) -> Dict:
         
-        optimizer = hydra_instantiate(self.train_config.optimizer, params=self.parameters(), _recursive_=False)
-        lr_scheduler = hydra_instantiate(self.train_config.scheduler, optimizer=optimizer)
+        optimizer = hydra_instantiate(
+            self.train_config.optimizer, 
+            params=self.parameters(), 
+            _recursive_=False, 
+            _convert_="all"
+        )
+        lr_scheduler = hydra_instantiate(self.train_config.scheduler, optimizer=optimizer, _convert_="all")
         return dict(optimizer=optimizer, lr_scheduler=lr_scheduler)
 
     def forward(self, batch: Batch) -> Tensor:
