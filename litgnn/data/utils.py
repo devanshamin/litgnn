@@ -73,7 +73,7 @@ def get_dataset_splits(
 def create_mol_graph_from_smiles(smiles: str, **kwargs) -> Data:
 
     mol = Chem.MolFromSmiles(smiles)
-    x = torch.tensor([atom_features(atom) for atom in mol.GetAtoms()], dtype=torch.float32)
+    x = torch.tensor([atom_features(atom) for atom in mol.GetAtoms()], dtype=torch.float)
     edge_indices, edge_attrs = [], []
     for src, dst in itertools.combinations(range(x.size(0)), 2):
         if (bond := mol.GetBondBetweenAtoms(src, dst)) is None:
@@ -82,7 +82,7 @@ def create_mol_graph_from_smiles(smiles: str, **kwargs) -> Data:
         edge_indices += [[src, dst], [dst, src]]
         edge_attrs += [e, e] if kwargs.get("atom_messages") else [x[src].tolist() + e, x[dst].tolist() + e]
     edge_index = torch.tensor(edge_indices).t().to(torch.long).view(2, -1)
-    edge_attr = torch.tensor(edge_attrs, dtype=torch.float32)
+    edge_attr = torch.tensor(edge_attrs, dtype=torch.float)
 
     if edge_index.numel() > 0:
         perm = (edge_index[0] * x.size(0) + edge_index[1]).argsort()
