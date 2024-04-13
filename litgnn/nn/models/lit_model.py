@@ -3,38 +3,32 @@ from typing import Dict
 from torch import Tensor
 import pytorch_lightning as L
 from torch_geometric.data import Batch
+from omegaconf import DictConfig
 from hydra.utils import instantiate as hydra_instantiate
 
 
 class LitGNNModel(L.LightningModule):
     
-    def __init__(
-        self,
-        model_config,
-        train_config,
-        task_config
-    ) -> None:
+    def __init__(self, config: DictConfig) -> None:
 
         super().__init__()
         self.save_hyperparameters()
-        self.task_config = task_config
-        self.train_config = train_config
-        self.model = hydra_instantiate(model_config, _convert_="all")
-        self.loss_func = hydra_instantiate(self.task_config.loss)
-        self._step_to_metrics = {
-            step: {k: hydra_instantiate(v).to(self.device) for k, v in self.task_config.metrics.items()}
-            for step in ("train", "val", "test")
-        }
+        self.config = config
+        self.model = hydra_instantiate(config.model, _convert_="all")
+        self.loss_func = hydra_instantiate(config.dataset.task.loss)
+        for step in ("train", "val", "test"):
+            for metric, v in config.dataset.task.metrics.items():
+                setattr(self, f"{step}_{metric}", hydra_instantiate(v))
 
     def configure_optimizers(self) -> Dict:
         
         optimizer = hydra_instantiate(
-            self.train_config.optimizer, 
+            self.config.train.optimizer, 
             params=self.parameters(), 
             _recursive_=False, 
             _convert_="all"
         )
-        lr_scheduler = hydra_instantiate(self.train_config.scheduler, optimizer=optimizer, _convert_="all")
+        lr_scheduler = hydra_instantiate(self.config.train.scheduler, optimizer=optimizer, _convert_="all")
         return dict(optimizer=optimizer, lr_scheduler=lr_scheduler)
 
     def forward(self, batch: Batch) -> Tensor:
@@ -90,14 +84,17 @@ class LitGNNModel(L.LightningModule):
             prog_bar=step in ("train", "val"),
             batch_size=preds.size(0)
         )
-        metric_to_func = self._step_to_metrics[step]
-        for func in metric_to_func.values():
+        if self.config.dataset.task.task_type.endswith("classification"):
+            target = target.long()
+        for metric in self.config.dataset.task.metrics:
+            func = getattr(self, f"{step}_{metric}")
             func(preds, target) # Accumulate metrics
         return loss
     
     def _log_and_reset_metrics(self, step: str, **log_kwargs) -> None:
 
-        for metric, func in self._step_to_metrics[step].items():
+        for metric in self.config.dataset.task.metrics:
+            func = getattr(self, f"{step}_{metric}")
             # Compute metric on all batches
             value = func.compute().item()
             self.log(f"{step}_{metric}", value, **log_kwargs)

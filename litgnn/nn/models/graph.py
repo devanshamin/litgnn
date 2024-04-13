@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch_geometric.nn import pool as global_pooling
 from torch_geometric.typing import Adj
 
-from litgnn import models
+from litgnn.nn import models
 
 
 class GraphLevelGNN(nn.Module):
