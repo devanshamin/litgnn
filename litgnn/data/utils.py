@@ -11,7 +11,7 @@ from torch_geometric.datasets import MoleculeNet
 
 from litgnn import splits as dataset_splits
 from litgnn.data.custom_dataset import CustomDataset
-from litgnn.models.cmpnn.featurization import atom_features, bond_features
+from litgnn.nn.models.cmpnn.featurization import atom_features, bond_features
 
 RDLogger.DisableLog("rdApp.*")
 logger = logging.getLogger()
