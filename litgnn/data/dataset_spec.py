@@ -6,6 +6,7 @@ from typing import Dict, Optional, Union, List, Tuple, ClassVar
 
 import requests
 from tqdm import tqdm
+from torch_geometric.data import download_url
 from pydantic import BaseModel, field_validator, computed_field
 
 
@@ -29,6 +30,7 @@ class CustomDatasetSpec(BaseModel):
 
     @field_validator("url", "file_path", mode="after", check_fields=True)
     def check_url_file_path(cls, v, values):
+
         if not v and not values.get("file_path"):
             raise ValueError("Both 'url' and 'file_path' cannot be empty.")
         return v
@@ -36,6 +38,7 @@ class CustomDatasetSpec(BaseModel):
     @computed_field
     @property
     def display_name(self) -> str:
+        
         return self.dataset_name.upper()
 
 
@@ -44,50 +47,49 @@ class BiogenDatasetSpec(CustomDatasetSpec):
     [here](https://devanshamin.netlify.app/posts/molecule-property-prediction-datasets/).
     
     Following are the individual tasks within the dataset:
-    - `HLM_CLint`: Human Liver Microsomal stability
-    - `MDR1-MDCK_ER`: MDR1-MDCK Efflux Ratio
-    - `SOLUBILITY`: Aqueous Solubility
+    - `HLM`: Human Liver Microsomal stability
+    - `MDR1_ER`: MDR1-MDCK Efflux Ratio
+    - `Sol`: Aqueous Solubility
     - `hPPB`: Human Plasma Protein Binding
     - `rPPB`: Rat Plasma Protein Binding
-    - `RLM_CLint`: Rat Liver Microsomal stability
+    - `RLM`: Rat Liver Microsomal stability
     """
 
     group_key: ClassVar[str] = "biogen"
-    dataset_name: str = "biogen_adme"
-    smiles_col_idx: int = 2
-    url: str = "https://raw.githubusercontent.com/molecularinformatics/Computational-ADME/main/ADME_public_set_3521.csv"
-    file_name: str = "ADME_public_set_3521.csv"
+    smiles_col_idx: int = 0
+    target_col_idx: int = -1
+    url: str = "https://raw.githubusercontent.com/molecularinformatics/Computational-ADME/main/MPNN/ADME_{}"
+    file_name: List[str] = ["train_val.csv", "test.csv"]
 
-    # Single CSV file containing separate columns for each task
-    # Following are the columns in the dataset respresenting individual tasks
-    column_to_idx: ClassVar[Dict[str, int]] = {
-        "LOG HLM_CLint (mL/min/kg)": 4,
-        "LOG MDR1-MDCK ER (B-A/A-B)": 5,
-        "LOG SOLUBILITY PH 6.8 (ug/mL)": 6,
-        "LOG PLASMA PROTEIN BINDING (HUMAN) (% unbound)": 7,
-        "LOG PLASMA PROTEIN BINDING (RAT) (% unbound)": 8,
-        "LOG RLM_CLint (mL/min/kg)": 9,
-    }
+    datasets: ClassVar[Tuple[str]] = ("HLM", "MDR1_ER", "Sol", "hPPB", "rPPB", "RLM")
 
-    @field_validator("target_col_idx", mode="after")
-    def check_target_col_idx(cls, v, values):
-        target_col_idxs = cls.column_to_idx.values()
-        if v not in target_col_idxs:
-            raise ValueError(f"Invalid target column index! Please select one from {list(target_col_idxs)}")
+    @field_validator("dataset_name", mode="after")
+    def check_dataset_name(cls, v, values):
+        
+        if v not in cls.datasets:
+            raise ValueError(f"Invalid dataset name! Please select one from {cls.datasets}")
         return v
 
     @computed_field
     @property
     def display_name(self) -> str:
-        col_idx_to_name = {
-            4: "HLM_CLint", 
-            5: "MDR1-MDCK_ER",
-            6: "SOLUBILITY",
-            7: "hPPB",
-            8: "rPPB",
-            9: "RLM_CLint",
-        }
-        return col_idx_to_name[self.target_col_idx]
+
+        return self.dataset_name
+
+    def download_data(self, dir_path: str) -> None:
+        
+        # The dataset will be saved as follows, 
+        # - biogen -> HLM -> train_val.csv
+        # - biogen -> HLM -> test.csv
+        # where, HLM is the dataset name
+        dir_path = Path(dir_path, self.display_name)
+        for i, fname in enumerate(self.file_name):
+            # They use train/test (https://github.com/molecularinformatics/Computational-ADME/tree/main/MPNN)
+            suffix = "train" if fname.startswith("train_val") else "test"
+            url = self.url.format(f"{self.display_name}_{suffix}.csv")
+            download_url(url, dir_path, filename=fname)
+            # Update file name
+            self.file_name[i] = str(Path(self.display_name, fname))
 
 
 class TDCADMETDatasetSpec(CustomDatasetSpec):
@@ -129,9 +131,10 @@ class TDCADMETDatasetSpec(CustomDatasetSpec):
         "vdss_lombardo"
     )
 
-    @field_validator("target_col_idx", mode="after")
+    @field_validator("dataset_name", mode="after")
     def check_dataset_name(cls, v, values):
-        if values.get("dataset_name") not in cls.datasets:
+
+        if v not in cls.datasets:
             raise ValueError(f"Invalid dataset name! Please select one from {cls.datasets}")
         return v
     
