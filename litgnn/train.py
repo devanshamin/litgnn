@@ -18,11 +18,28 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from litgnn.data.data_module import LitDataModule
-from litgnn.models.lit_model import LitGNNModel
+from litgnn.nn.models.lit_model import LitGNNModel
 from litgnn.utils import profile_execution, pre_init_model_setup
 
 warnings.filterwarnings("ignore")
 logger = logging.getLogger(__name__)
+
+
+def prepare_config(cfg: DictConfig, data_module: LitDataModule) -> DictConfig:
+
+    # Populate the required config values
+    cfg.train.dataset.num_node_features = data_module.num_node_features
+    cfg.train.dataset.num_edge_features = data_module.num_edge_features
+    cfg.train.scheduler.steps_per_epoch = data_module.num_train_steps_per_epoch
+    if cfg.dataset.dataset_type == "custom":
+        # Add group key as the `wandb` job name prefix instead of 'custom'
+        cfg.train.trainer.logger.job_type = f"{cfg.dataset.group_key}-{cfg.dataset.dataset_name}"
+
+    # Resolve all variable interpolations
+    OmegaConf.resolve(cfg)
+    # logger.info(OmegaConf.to_yaml(cfg))
+
+    return cfg
 
 
 @profile_execution
@@ -40,30 +57,14 @@ def run(cfg) -> Tuple[float, Dict[str, float]]:
         split_sizes=cfg.train.dataset.split_sizes,
         batch_size=cfg.train.batch_size
     )
-
-    # Populate the required config values
-    if cfg.dataset.dataset_name is None:
-        cfg.dataset.dataset_name = data_module._dataset.dataset_name
-    cfg.train.dataset.num_node_features = data_module.num_node_features
-    cfg.train.dataset.num_edge_features = data_module.num_edge_features
-    cfg.train.scheduler.steps_per_epoch = data_module.num_train_steps_per_epoch
-    if cfg.dataset.dataset_type == "custom":
-        # Add group key as the `wandb` job name prefix instead of 'custom'
-        cfg.train.trainer.logger.job_type = f"{cfg.dataset.group_key}-{cfg.dataset.dataset_name}"
-
-    # Resolve all variable interpolations
-    OmegaConf.resolve(cfg)
-    # logger.info(OmegaConf.to_yaml(cfg))
-
+    cfg = prepare_config(cfg, data_module)
     pre_init_model_setup(model_config=cfg.model, data_module=data_module)
-    lit_model = LitGNNModel(model_config=cfg.model, train_config=cfg.train, task_config=cfg.task)
+    lit_model = LitGNNModel(cfg)
+
     assert cfg.train.trainer.accelerator == "gpu" and torch.cuda.is_available(), \
         "GPU acceleration is requested but CUDA is not available."
-    
-    trainer: L.Trainer = hydra_instantiate(cfg.train.trainer, _recursive_=True)
+    trainer: L.Trainer = hydra_instantiate(cfg.train.trainer, _recursive_=True, _convert_="all")
     if isinstance(trainer.logger, WandbLogger):
-        # Log dataset config
-        trainer.logger.experiment.config["dataset_config"] = cfg.dataset
         for cb in trainer._callback_connector.trainer.callbacks:
             if isinstance(cb, ModelCheckpoint):
                 # If you want to save model checkpoints in the `wandb` dir
@@ -99,17 +100,25 @@ def main(cfg: DictConfig) -> Optional[float]:
         best_val_loss, _ = run(cfg)
         return best_val_loss # For hydra optuna sweep
     
-    metrics = {}
+    metrics = dict(train={}, val={}, test={})
     start_seed = cfg.train.seed
     for i in range(start_seed, start_seed + cfg.train.num_seed_runs):
         _cfg = copy.deepcopy(cfg)
         _cfg.train.seed = i
         _, test_metrics = run(_cfg)
         for k, v in test_metrics.items():
-            metrics.setdefault(k, []).append(v)
+            split = k.split("_")[0]
+            metrics[split].setdefault(k, []).append(v)
     
-    for k, v in metrics.items():
-        logger.info("Test {}: {} ± {}".format(k, round(np.mean(v), 3), round(np.std(v), 3)))
+    for result in metrics.values():
+        for metric, value in result.items():
+            logger.info(
+                "{}: {} ± {}".format(
+                    metric.capitalize(), 
+                    round(np.mean(value), 3), 
+                    round(np.std(value), 3)
+                )
+            )
 
 
 if __name__ == "__main__":
