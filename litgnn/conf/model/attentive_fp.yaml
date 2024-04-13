@@ -1,8 +1,5 @@
 model_cls: AttentiveFP
-in_channels: ${train.dataset.num_node_features}
 hidden_channels: 128
-out_channels: ???
-edge_dim: ${train.dataset.num_edge_features}
 num_conv_layers: 3
 num_timesteps: 2
 dropout: 0.0

@@ -2,11 +2,17 @@ defaults:
   - _self_
   - dataset: ???
   - model: ???
-  - task: ???
+  - scheduler@train.scheduler: noam
   - override hydra/job_logging: custom
 
+dataset:
+  atom_messages: False
+
 model:
-  _target_: litgnn.models.graph_level.GraphLevelGNN
+  _target_: litgnn.nn.models.graph.GraphLevelGNN
+  in_channels: ${train.dataset.num_node_features}
+  out_channels: ${dataset.num_classes}
+  edge_dim: ${train.dataset.num_edge_features}
   num_ffn_layers: 2
   pooling_func_name: global_mean_pool
 
@@ -20,7 +26,7 @@ train:
     split_sizes: [0.8, 0.1, 0.1]
     num_node_features: ???
     num_edge_features: ???
-  
+
   trainer:
     _target_: pytorch_lightning.Trainer
     accelerator: gpu
@@ -45,17 +51,7 @@ train:
         monitor: val_loss
         mode: min
         patience: 10
-  
-  scheduler:
-    _target_: litgnn.utils.NoamLR
-    warmup_epochs: [2]
-    total_epochs: 
-      - ${train.trainer.max_epochs}
-    init_lr: [1e-4]
-    max_lr: [1e-3]
-    final_lr: [1e-4]
-    steps_per_epoch: ???
-  
+
   optimizer:
     _target_: torch.optim.Adam
     lr: ${train.scheduler.init_lr[0]}

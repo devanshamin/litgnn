@@ -1,8 +1,6 @@
 model_cls: PNA
-in_channels: ${train.dataset.num_node_features}
 hidden_channels: 64
 out_channels: ???
-edge_dim: ${train.dataset.num_edge_features}
 num_conv_layers: 3
 dropout: 0.0
 towers: 4 # No. of tower containing linear layers (pre_layers & post_layers)

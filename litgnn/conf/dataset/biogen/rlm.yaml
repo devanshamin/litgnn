@@ -1,0 +1,7 @@
+defaults:
+  - /task: regression
+
+dataset_type: custom
+group_key: biogen
+dataset_name: RLM
+num_classes: 1

@@ -1,6 +1,10 @@
+task_type: regression
+
 loss:
   _target_: torch.nn.MSELoss
 
 metrics:
   mae:
     _target_: torchmetrics.MeanAbsoluteError
+  r2score:
+    _target_: torchmetrics.R2Score

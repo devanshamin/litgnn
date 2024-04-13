@@ -1,0 +1,15 @@
+task_type: binary_classification
+
+loss:
+  _target_: torch.nn.BCEWithLogitsLoss
+
+metrics:
+  auroc:
+    _target_: torchmetrics.AUROC
+    task: binary
+  auprc:
+    _target_: torchmetrics.AveragePrecision
+    task: binary
+  f1score:
+    _target_: torchmetrics.F1Score
+    task: binary
