@@ -1,0 +1,8 @@
+_target_: litgnn.nn.lr_scheduler.NoamLRScheduler
+warmup_epochs: [2]
+total_epochs: 
+  - ${train.trainer.max_epochs}
+init_lr: [1e-4]
+max_lr: [1e-3]
+final_lr: [1e-4]
+steps_per_epoch: ???
