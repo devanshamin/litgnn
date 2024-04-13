@@ -1,0 +1,18 @@
+task_type: multiclass_classification
+
+loss:
+  _target_: torch.nn.CrossEntropyLoss
+
+metrics:
+  auroc:
+    _target_: torchmetrics.AUROC
+    task: multiclass
+    num_classes: ${dataset.num_classes}
+  auprc:
+    _target_: torchmetrics.AveragePrecision
+    task: multiclass
+    num_classes: ${dataset.num_classes}
+  f1score:
+    _target_: torchmetrics.F1Score
+    task: multiclass
+    num_classes: ${dataset.num_classes}

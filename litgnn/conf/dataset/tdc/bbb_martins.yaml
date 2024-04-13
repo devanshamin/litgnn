@@ -1,0 +1,7 @@
+defaults:
+  - /task: binary_classification
+
+dataset_type: custom
+group_key: tdc
+dataset_name: bbb_martins
+num_classes: 1

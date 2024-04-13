@@ -1,0 +1,6 @@
+defaults:
+  - /task: multilabel_classification
+
+dataset_type: molecule_net
+dataset_name: clintox
+num_classes: 2

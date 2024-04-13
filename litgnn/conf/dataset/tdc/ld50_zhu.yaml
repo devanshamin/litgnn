@@ -1,0 +1,7 @@
+defaults:
+  - /task: regression
+
+dataset_type: custom
+group_key: tdc
+dataset_name: ld50_zhu
+num_classes: 1

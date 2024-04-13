@@ -1,0 +1,7 @@
+defaults:
+  - /task: binary_classification
+
+dataset_type: custom
+group_key: tdc
+dataset_name: cyp2c9_veith
+num_classes: 1
