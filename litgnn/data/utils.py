@@ -6,6 +6,7 @@ from typing import Dict, List
 
 import torch
 from rdkit import Chem, RDLogger
+from omegaconf import DictConfig
 from torch_geometric.data import Data, Dataset
 from torch_geometric.datasets import MoleculeNet
 
@@ -17,20 +18,21 @@ RDLogger.DisableLog("rdApp.*")
 logger = logging.getLogger()
 
 
-def load_dataset(dataset_config) -> Dataset:
+def load_dataset(dataset_config: DictConfig) -> Dataset:
 
+    save_dir = dataset_config.get("save_dir") or str(Path.cwd() / ".cache")
     dataset_type = dataset_config.dataset_type
     if dataset_type == "custom":
         kwargs = {k: v for k, v in dataset_config.items() if v}
         atom_messages = kwargs.pop("atom_messages", False)
         dataset = CustomDataset(
-            root=str(Path.cwd() / ".cache"), 
+            root=save_dir, 
             create_graph_from_smiles_fn=partial(create_mol_graph_from_smiles, atom_messages=atom_messages),
             **kwargs
         )
     elif dataset_type == "molecule_net":
         dataset = MoleculeNet(
-            root=str(Path.cwd() / ".cache"), 
+            root=save_dir, 
             name=dataset_config.dataset_name,
             pre_filter=lambda data: Chem.MolFromSmiles(data.smiles) is not None,
             pre_transform=lambda data: create_mol_graph_from_smiles(
