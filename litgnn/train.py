@@ -8,6 +8,7 @@ import torch
 import numpy as np
 import hydra
 import wandb
+from dotenv import load_dotenv
 from hydra.core.hydra_config import HydraConfig
 from hydra.types import RunMode
 from omegaconf import DictConfig, OmegaConf
@@ -21,6 +22,7 @@ from litgnn.data.data_module import LitDataModule
 from litgnn.nn.models.lit_model import LitGNNModel
 from litgnn.utils import profile_execution, pre_init_model_setup
 
+load_dotenv()
 warnings.filterwarnings("ignore")
 logger = logging.getLogger(__name__)
 
