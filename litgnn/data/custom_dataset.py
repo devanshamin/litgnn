@@ -3,7 +3,6 @@ import os.path as osp
 import re
 import hashlib
 from pathlib import Path
-from functools import partial
 from typing import Callable, Dict, Optional, Union, List
 
 import torch
@@ -60,7 +59,7 @@ class CustomDataset(InMemoryDataset):
     @property
     def processed_dir(self) -> str:
         
-        return osp.join(self.root, self.dataset_spec.group_key, "processed")
+        return osp.join(self.root, self.dataset_spec.group_key, "processed", self.dataset_name)
 
     @property
     def raw_file_names(self) -> Union[str, List[str]]:
@@ -70,23 +69,10 @@ class CustomDataset(InMemoryDataset):
     @property
     def processed_file_names(self) -> Union[str, List[str]]:
 
-        sp = self.dataset_spec
-        # The uid is made up of variables that are unique to a dataset.
-        # Different variables combination should yield a different dataset.
-        # So, it is crucial to include such variables in the uid.
-        # Example of such variables are 
-        # create_graph_from_smiles_fn, dataset_name, target_col_idx etc.
-        func = self.create_graph_from_smiles_fn
-        uid = "_".join((
-            sp.model_dump_json(),
-            # Captures the kwargs passed to the func if it's a partial func
-            str(func.keywords) if isinstance(func, partial) else "", 
-        ))
-        uid = CustomDataset.create_hash(uid)
-        fname = f"data_{uid}.pt"
-        if isinstance(sp.file_name, list):
+        fname = "data.pt"
+        if isinstance(self.dataset_spec.file_name, list):
             # Assumes the dataset provides separate files for train and test
-            fname = [fname, f"idx_{uid}.pt"]
+            fname = [fname, "idx.pt"]
         return fname
 
     def download(self) -> None:
