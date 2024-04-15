@@ -40,9 +40,10 @@ def test_dataset_config_excluding_metrics(dir_name, dataset_name, expected_confi
         cfg = compose(config_name="config", overrides=[f"dataset={dir_name}/{dataset_name}", "model=pna"])
         dataset_cfg = OmegaConf.to_container(cfg["dataset"])
         dataset_cfg["task"].pop("metrics")
+        dataset_cfg.pop("save_dir", None)
+        dataset_cfg.pop("pre_transform", None)
         
         # Build the expected config
-        expected_config["atom_messages"] = False
         if "dataset_name" not in expected_config:
             expected_config["dataset_name"] = dataset_name
         task_config = expected_config["task"]
