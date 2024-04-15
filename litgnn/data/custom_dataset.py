@@ -23,7 +23,6 @@ class CustomDataset(InMemoryDataset):
         pre_transform: Optional[Callable] = None,
         pre_filter: Optional[Callable] = None,
         force_reload: bool = False,
-        create_graph_from_smiles_fn: Callable = from_smiles,
         **dataset_spec_kwargs
     ) -> None:
         
@@ -31,7 +30,6 @@ class CustomDataset(InMemoryDataset):
         dataset_spec_cls = groups.get(group_key)
         assert dataset_spec_cls is not None, f"Invalid group key! Please select one from {list(groups)}."
         self.dataset_spec: CustomDatasetSpec = dataset_spec_cls(**dataset_spec_kwargs)
-        self.create_graph_from_smiles_fn = create_graph_from_smiles_fn
         self._split_idx = None # Used when the dataset provides separate files for training and testing
 
         super().__init__(root, transform, pre_transform, pre_filter, force_reload=force_reload)
@@ -106,7 +104,7 @@ class CustomDataset(InMemoryDataset):
             ys = [float(y) if len(y) > 0 else float("NaN") for y in labels]
             y = torch.tensor(ys, dtype=torch.float).view(1, -1)
 
-            data = self.create_graph_from_smiles_fn(smiles)
+            data = from_smiles(smiles)
             data.y = y
 
             if self.pre_filter is not None and not self.pre_filter(data):

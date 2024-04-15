@@ -6,7 +6,10 @@ defaults:
   - override hydra/job_logging: custom
 
 dataset:
-  atom_messages: False
+  save_dir: .cache
+  pre_transform: 
+    _target_: litgnn.nn.models.cmpnn.featurization.FeaturesGenerator
+    atom_messages: False
 
 model:
   _target_: litgnn.nn.models.graph.GraphLevelGNN
@@ -17,7 +20,7 @@ model:
   pooling_func_name: global_mean_pool
 
 train:
-  num_seed_runs: 5  # No. of times to run the train-test split with different seeds
+  num_seed_runs: 1  # No. of times to run the train-test split with different seeds
   seed: 1
   batch_size: 32
 
