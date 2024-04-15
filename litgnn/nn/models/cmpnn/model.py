@@ -5,13 +5,34 @@ import torch
 from torch import Tensor
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.typing import Adj
 from torch_geometric.nn import MessagePassing
 from torch_geometric.nn.aggr import MaxAggregation, SumAggregation
 
 
 class CMPNN(nn.Module):
+    r"""The Communicative Message Passing Neural Network (CMPNN) model from the
+    `"Communicative Representation Learning on Attributed Molecular Graphs"
+    <https://www.ijcai.org/Proceedings/2020/392>`_ paper.
 
+    .. note::
+
+        For an example of using CMPNN, see
+        `examples/cmpnn.py
+        <https://github.com/pyg-team/pytorch_geometric/blob/master/examples/
+        cmpnn.py>`_.
+    
+    Args:
+        in_channels (int): Size of each input sample.
+        hidden_channels (int): Hidden node feature dimensionality.
+        out_channels (int): Size of each output sample.
+        edge_dim (int): Edge feature dimensionality.
+        num_layers (int): Number of GNN layers.
+        communicator (Literal['additive', 'inner_product', 'gru', 'mlp']): Name of the 
+            communicative kernel used for message interactions between nodes and edges.
+        dropout (float, optional): Dropout probability. (default: :obj:`0.0`)
+        bias (float, optional): Bias. (default: :obj:`False`)
+    """
+    
     def __init__(
         self,
         in_channels: int,
@@ -19,7 +40,7 @@ class CMPNN(nn.Module):
         out_channels: int,
         edge_dim: int,
         num_layers: int,
-        communicator_name: str,
+        communicator: Literal['additive', 'inner_product', 'gru', 'mlp'],
         dropout: float = 0.0,
         bias: bool = False
     ) -> None:
@@ -31,7 +52,7 @@ class CMPNN(nn.Module):
         self.out_channels = out_channels
         self.edge_dim = edge_dim
         self.num_layers = num_layers
-        self.communicator_name = communicator_name
+        self.communicator = communicator
         self.dropout = dropout
 
         self.atom_proj = nn.Sequential(
@@ -46,14 +67,14 @@ class CMPNN(nn.Module):
         self.convs = nn.ModuleList()
         for _ in range(self.num_layers - 1): 
             self.convs.append(
-                GCNEConv(hidden_channels, hidden_channels, communicator_name, dropout, bias)
+                GCNEConv(hidden_channels, hidden_channels, communicator, dropout, bias)
             )
-        self.convs.append(GCNConv(hidden_channels, hidden_channels, communicator_name))
+        self.convs.append(GCNConv(hidden_channels, hidden_channels, communicator))
 
-        self.lin = nn.Linear(hidden_channels * 3, out_channels, bias=bias)
+        self.lin = nn.Linear(hidden_channels * 3, hidden_channels, bias=bias)
         self.gru = BatchGRU(hidden_channels)
         self.seq_out = nn.Sequential(
-            nn.Linear(hidden_channels * 2, hidden_channels),
+            nn.Linear(hidden_channels * 2, out_channels),
             nn.ReLU(),
             nn.Dropout(p=dropout)
         )
@@ -70,11 +91,21 @@ class CMPNN(nn.Module):
     def forward(
         self, 
         x: Tensor, 
-        edge_index: Adj, 
+        edge_index: Tensor, 
         edge_attr: Tensor,
         batch: Tensor
     ) -> Tensor:
-        
+        r"""Forward pass.
+
+        Args:
+            x (torch.Tensor): The node features.
+            edge_index (torch.Tensor): The edge indices.
+            edge_attr (torch.Tensor): The edge features.
+            batch (torch.Tensor): The batch vector
+                :math:`\mathbf{b} \in {\{ 0, \ldots, B-1\}}^N`, which assigns
+                each node to a specific graph.
+        """
+
         init_atom_embed = self.atom_proj(x)
         atom_embed = init_atom_embed.clone()
         init_bond_embed = self.bond_proj(edge_attr)
@@ -93,6 +124,16 @@ class CMPNN(nn.Module):
         atom_embed = self.gru(atom_embed, batch)
         return self.seq_out(atom_embed)
 
+    def __repr__(self) -> str:
+        return (f'{self.__class__.__name__}('
+                f'in_channels={self.in_channels}, '
+                f'hidden_channels={self.hidden_channels}, '
+                f'out_channels={self.out_channels}, '
+                f'edge_dim={self.edge_dim}, '
+                f'num_layers={self.num_layers}, '
+                f'communicator={self.communicator}'
+                f')')
+
 
 class GCNEConv(MessagePassing):
 
@@ -100,21 +141,21 @@ class GCNEConv(MessagePassing):
         self, 
         in_channels: int,
         out_channels: int,
-        communicator_name: str, 
+        communicator: Literal['additive', 'inner_product', 'gru', 'mlp'], 
         dropout: float = 0.0,
         bias: bool = False
     ) -> None:
         
         super().__init__(
             aggr=[SumAggregation(), MaxAggregation()], 
-            aggr_kwargs=dict(mode="message_booster"),
+            aggr_kwargs=dict(mode='message_booster'),
         )
         self.in_channels = in_channels
         self.out_channels = out_channels
-        self.communicator_name = communicator_name
+        self.communicator = communicator
         self.dropout = dropout
         self.communicator = NodeEdgeMessageCommunicator(
-            name=communicator_name,
+            name=communicator,
             hidden_channels=in_channels
         )
         self.lin = nn.Linear(in_channels, out_channels, bias=bias)
@@ -123,7 +164,7 @@ class GCNEConv(MessagePassing):
         self, 
         x: Tensor, 
         edge_attr: Tensor, 
-        edge_index: Adj,
+        edge_index: Tensor,
         init_edge_embed: Tensor
     ) -> Tuple[Tensor, Tensor]:
 
@@ -168,7 +209,7 @@ class GCNEConv(MessagePassing):
     def __repr__(self) -> str:
         return (
             f'{self.__class__.__name__}({self.in_channels}, {self.out_channels}, '
-            f"communicator_name='{self.communicator_name}')"
+            f"communicator='{self.communicator}')"
         )
     
     @staticmethod
@@ -186,18 +227,18 @@ class GCNConv(MessagePassing):
         self, 
         in_channels: int,
         out_channels: int,
-        communicator_name: str, 
+        communicator: Literal['additive', 'inner_product', 'gru', 'mlp'], 
     ) -> None:
         
         super().__init__(
             aggr=[SumAggregation(), MaxAggregation()], 
-            aggr_kwargs=dict(mode="message_booster"),
+            aggr_kwargs=dict(mode='message_booster'),
         )
         self.in_channels = in_channels
         self.out_channels = out_channels
-        self.communicator_name = communicator_name
+        self.communicator = communicator
         self.communicator = NodeEdgeMessageCommunicator(
-            name=communicator_name,
+            name=communicator,
             hidden_channels=in_channels
         )
 
@@ -205,7 +246,7 @@ class GCNConv(MessagePassing):
         self, 
         x: Tensor, 
         edge_attr: Tensor, 
-        edge_index: Adj
+        edge_index: Tensor
     ) -> Tuple[Tensor, Tensor]:
 
         x = self.propagate(
@@ -231,7 +272,7 @@ class GCNConv(MessagePassing):
     def __repr__(self) -> str:
         return (
             f'{self.__class__.__name__}({self.in_channels}, {self.out_channels}, '
-            f"communicator_name='{self.communicator_name}')"
+            f"communicator='{self.communicator}')"
         )
 
 
@@ -239,19 +280,19 @@ class NodeEdgeMessageCommunicator(nn.Module):
 
     def __init__(
         self, 
-        name: Literal["additive", "inner_product", "gru", "mlp"], 
+        name: Literal['additive', 'inner_product', 'gru', 'mlp'], 
         hidden_channels: int
     ) -> None:
         
         super().__init__()
-        assert name in ("additive", "inner_product", "gru", "mlp"), f"Invalid communicator '{name}'!"
+        assert name in ('additive', 'inner_product', 'gru', 'mlp'), f"Invalid communicator '{name}'!"
         self.name = name
         self.hidden_channels = hidden_channels
         self.communicator = None
 
-        if name == "gru":
+        if name == 'gru':
             self.communicator = nn.GRUCell(hidden_channels, hidden_channels)
-        elif name == "mlp":
+        elif name == 'mlp':
             self.communicator = nn.Sequential(
                 nn.Linear(hidden_channels * 2, hidden_channels),
                 nn.ReLU()
@@ -259,13 +300,13 @@ class NodeEdgeMessageCommunicator(nn.Module):
 
     def forward(self, message: Tensor, hidden_state: Tensor) -> Tensor:
 
-        if self.name == "additive":
+        if self.name == 'additive':
             out = hidden_state + message
-        elif self.name == "inner_product":
+        elif self.name == 'inner_product':
             out = hidden_state * message
-        elif self.name == "gru":
+        elif self.name == 'gru':
             out = self.communicator(hidden_state, message)
-        elif self.name == "mlp":
+        elif self.name == 'mlp':
             message = torch.cat((hidden_state, message), dim=1)
             out = self.communicator(message)
         return out
