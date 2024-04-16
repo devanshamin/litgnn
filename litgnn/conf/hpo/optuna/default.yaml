@@ -21,6 +21,13 @@ hydra:
     n_trials: 50
     n_jobs: 1 
 
+optuna_lightning_pruning_callback:
+  # Value to return to the optuna objective function
+  # Used in combination with `hydra.sweeper.direction`
+  # i.e., val_loss, val_mae, val_auroc
+  # For available metrics, check out `conf/task` directory
+  monitor: val_loss
+
 train:
   trainer:
     logger:
