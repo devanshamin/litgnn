@@ -140,3 +140,4 @@ outputs/
 multirun/
 lightning_logs/
 wandb/
+optuna/
