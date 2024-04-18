@@ -18,18 +18,18 @@ class CustomDataset(InMemoryDataset):
     def __init__(
         self,
         root: str,
+        name: str,
         group_key: str,
         transform: Optional[Callable] = None,
         pre_transform: Optional[Callable] = None,
         pre_filter: Optional[Callable] = None,
         force_reload: bool = False,
-        **dataset_spec_kwargs
     ) -> None:
         
         groups = get_available_groups()
         dataset_spec_cls = groups.get(group_key)
         assert dataset_spec_cls is not None, f"Invalid group key! Please select one from {list(groups)}."
-        self.dataset_spec: CustomDatasetSpec = dataset_spec_cls(**dataset_spec_kwargs)
+        self.dataset_spec: CustomDatasetSpec = dataset_spec_cls(dataset_name=name)
         self._split_idx = None # Used when the dataset provides separate files for training and testing
 
         super().__init__(root, transform, pre_transform, pre_filter, force_reload=force_reload)
