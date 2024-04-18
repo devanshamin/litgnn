@@ -1,13 +1,10 @@
 import logging
-import itertools
 from pathlib import Path
-from functools import partial
 from typing import Dict, List
 
-import torch
 from rdkit import Chem, RDLogger
 from omegaconf import DictConfig, OmegaConf
-from torch_geometric.data import Data, Dataset
+from torch_geometric.data import Dataset
 from torch_geometric.datasets import MoleculeNet
 from hydra.utils import instantiate as hydra_instantiate
 
@@ -22,18 +19,22 @@ def load_dataset(dataset_config: DictConfig) -> Dataset:
 
     cfg = OmegaConf.to_container(dataset_config)
     cfg["root"] = cfg.pop("save_dir", str(Path.cwd() / ".cache"))
-    if pre_transform := cfg.pop("pre_transform"):
+    if pre_transform := cfg.pop("pre_transform", None):
         cfg["pre_transform"] = hydra_instantiate(pre_transform, _convert_="all")
-    
-    dataset_type = cfg.pop("dataset_type")
+
+    kwargs = dict(
+        root=cfg["root"],
+        name=cfg["dataset_name"],
+        transform=cfg.get("transform"),
+        pre_transform=cfg.get("pre_transform"),
+        pre_filter=lambda data: Chem.MolFromSmiles(data.smiles) is not None,
+        force_reload=cfg.get("force_reload", False),
+    )
+    dataset_type = cfg["dataset_type"]
     if dataset_type == "custom":
-        dataset = CustomDataset(**cfg)
+        dataset = CustomDataset(group_key=cfg["group_key"], **kwargs)
     elif dataset_type == "molecule_net":
-        cfg["name"] = cfg.pop("dataset_name")
-        dataset = MoleculeNet(
-            pre_filter=lambda data: Chem.MolFromSmiles(data.smiles) is not None,
-            **cfg
-        )
+        dataset = MoleculeNet(**kwargs)
     else:
         raise ValueError(f"Invalid dataset type '{dataset_type}'!")
     return dataset
