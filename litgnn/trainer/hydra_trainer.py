@@ -6,6 +6,7 @@ from typing import Optional, Dict, Any, List
 
 import torch
 import wandb
+from dotenv import load_dotenv
 from omegaconf import DictConfig, OmegaConf
 from hydra.utils import instantiate as hydra_instantiate
 import pytorch_lightning as L
@@ -17,6 +18,7 @@ from litgnn.data.data_module import LitDataModule
 from litgnn.nn.models.lit_model import LitGNNModel
 from litgnn.trainer.utils import profile_execution, pre_init_model_setup
 
+load_dotenv()
 warnings.filterwarnings("ignore")
 logger = logging.getLogger(__name__)
 
