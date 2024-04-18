@@ -6,13 +6,11 @@ import torch
 import numpy as np
 import hydra
 from omegaconf import DictConfig
-from dotenv import load_dotenv
 from hydra.core.hydra_config import HydraConfig
 from hydra.types import RunMode
 
-from litgnn.trainer import hydra_trainer
+from litgnn.trainer.hydra_trainer import hydra_trainer
 
-load_dotenv()
 logger = logging.getLogger(__name__)
 
 
