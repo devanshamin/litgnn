@@ -39,7 +39,7 @@ start_hpo_run() {
 
     echo "Running optuna hyperparameter optimization on dataset: $DATASET_NAME"
 
-    python ./litgnn/train.py \
+    python ./litgnn/optimize.py \
         model=$MODEL \
         dataset=$DATASET_GROUP_KEY/$DATASET_NAME \
         ++train.dataset.split_sizes=$SPLIT_SIZES \
