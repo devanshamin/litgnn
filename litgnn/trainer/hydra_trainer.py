@@ -38,8 +38,9 @@ def prepare_config(cfg: DictConfig, data_module: LitDataModule) -> DictConfig:
     cfg.train.dataset.num_edge_features = data_module.num_edge_features
     cfg.train.scheduler.steps_per_epoch = data_module.num_train_steps_per_epoch
     if cfg.dataset.dataset_type == "custom":
-        # Add group key as the `wandb` job name prefix instead of 'custom'
-        cfg.train.trainer.logger.job_type = f"{cfg.dataset.group_key}-{cfg.dataset.dataset_name}"
+        if cfg.train.trainer.get("logger") and ("job_type" in cfg.train.trainer.logger):
+            # Add group key as the `wandb` job name prefix instead of 'custom'
+            cfg.train.trainer.logger.job_type = f"{cfg.dataset.group_key}-{cfg.dataset.dataset_name}"
 
     # Resolve all variable interpolations
     OmegaConf.resolve(cfg)
@@ -72,7 +73,8 @@ def hydra_trainer(cfg: DictConfig, callbacks: Optional[List[Any]] = None) -> Run
     if callbacks is not None:
         trainer._callback_connector.trainer.callbacks.extend(callbacks)
     run_id = ckpt_dir = None
-    if isinstance(trainer.logger, WandbLogger):
+    is_wandb_run = isinstance(trainer.logger, WandbLogger)
+    if is_wandb_run:
         for cb in trainer._callback_connector.trainer.callbacks:
             if isinstance(cb, ModelCheckpoint):
                 # If you want to save model checkpoints in the `wandb` dir
@@ -95,6 +97,7 @@ def hydra_trainer(cfg: DictConfig, callbacks: Optional[List[Any]] = None) -> Run
         logger.info(f"Run ID: {run_id}")
         logger.info(f"Checkpoint dir: {str(ckpt_dir)}")
 
-    wandb.finish()
+    if is_wandb_run:
+        wandb.finish()
 
     return RunOutput(val_loss=best_val_loss, metrics=metrics, run_id=run_id, ckpt_dir=str(ckpt_dir))
