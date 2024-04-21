@@ -1,0 +1,5 @@
+model_cls: CMPNN
+hidden_channels: 300
+num_conv_layers: 3
+communicator: mlp
+dropout: 0.0
