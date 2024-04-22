@@ -52,7 +52,7 @@ then
 
     # Install GPU version
     poetry run pip install torch==$PYTORCH_VERSION --index-url https://download.pytorch.org/whl/$HARDWARE
-    poetry run pip install torch_geometric
+    poetry run pip install git+https://github.com/devanshamin/pytorch_geometric.git@models/cmpnn
 fi
 
 # Install PyG additional libraries
