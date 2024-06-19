@@ -44,6 +44,7 @@ htmlcov/
 .coverage
 .coverage.*
 .cache
+.ruff_cache
 nosetests.xml
 coverage.xml
 *.cover
@@ -135,6 +136,7 @@ dmypy.json
 dask-worker-space
 
 # Custom
+poetry.lock
 test_*.ipynb
 outputs/
 multirun/
