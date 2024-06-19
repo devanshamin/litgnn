@@ -7,7 +7,7 @@ readme = "README.md"
 repository = "https://github.com/devanshamin/LitGNN"
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.12"
+python = ">=3.9,<3.12"
 pandas = "*"
 requests = "*"
 tqdm = "*"
@@ -17,10 +17,6 @@ rdkit = "^2023.9.5"
 pydantic = "^2.6.4"
 wandb = "^0.16.6"
 python-dotenv = "^1.0.1"
-# If you simply put `torch = "2.2.0"`, it will install whole bunch
-# of nvidia cuda libraries that are not required for CPU
-torch = { version = "2.2.0+cpu", source = "pytorch" }
-torch-geometric = { git = "https://github.com/devanshamin/pytorch_geometric.git", branch = "models/cmpnn" }
 pytorch-lightning = "^2.2.1"
 torchmetrics = "^0.11.4"
 hydra-core = "^1.3.2"
@@ -33,19 +29,23 @@ hydra-ray-launcher = { version = "^1.2.1", optional = true }
 # There is open PR (https://github.com/facebookresearch/hydra/pull/2360) that bumps optuna to v3.0.0
 SQLAlchemy="1.4.46"
 
-[[tool.poetry.source]]
-name = "pytorch"
-url = "https://download.pytorch.org/whl/cpu/"
-priority = "supplemental"
-
 [tool.poetry.dev-dependencies]
-pytest = "*"
-ipykernel = "*"
+ruff = "^0.4.9"
+pre-commit = "^3.7.1"
+pytest = "^8.2.2"
 
 [tool.poetry.extras]
 hydra_launchers = [
     "hydra-joblib-launcher",
     "hydra-ray-launcher"
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+ignore = [
+    "E731",  # Do not assign a lambda expression, use a def
 ]
 
 [build-system]
