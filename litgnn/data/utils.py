@@ -2,11 +2,11 @@ import logging
 from pathlib import Path
 from typing import Dict, List
 
-from rdkit import Chem, RDLogger
+from hydra.utils import instantiate as hydra_instantiate
 from omegaconf import DictConfig, OmegaConf
+from rdkit import Chem, RDLogger
 from torch_geometric.data import Dataset
 from torch_geometric.datasets import MoleculeNet
-from hydra.utils import instantiate as hydra_instantiate
 
 from litgnn import splits as dataset_splits
 from litgnn.data.custom_dataset import CustomDataset
@@ -41,9 +41,9 @@ def load_dataset(dataset_config: DictConfig) -> Dataset:
 
 
 def get_dataset_splits(
-    dataset: Dataset, 
-    *, 
-    split: str, 
+    dataset: Dataset,
+    *,
+    split: str,
     split_sizes: List[float],
     verbose: bool = False
 ) -> Dict[str, Dataset]:

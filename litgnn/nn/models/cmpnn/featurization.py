@@ -27,7 +27,7 @@ class FeaturesGenerator:
             # IsAromatic
             # Mass
         }
-    
+
     @property
     def atom_fdim(self) -> int:
         return sum(len(choices) + 1 for choices in self.atom_features.values()) + 2
@@ -39,12 +39,12 @@ class FeaturesGenerator:
     @staticmethod
     def onek_encoding_unk(value: int, choices: List[int]) -> List[int]:
         """Creates a one-hot encoding.
-        
+
         Args:
             value: The value for which the encoding should be one.
             choices: A list of possible values.
         Returns:
-            A one-hot encoding of the value in a list of length len(choices) + 1. If value is 
+            A one-hot encoding of the value in a list of length len(choices) + 1. If value is
             not in the list of choices, then the final element in the encoding is 1.
         """
         encoding = [0] * (len(choices) + 1)
@@ -105,7 +105,7 @@ class FeaturesGenerator:
         return fbond
 
     def __call__(self, data: Data) -> Data:
-        
+
         mol = Chem.MolFromSmiles(data.smiles)
         x = torch.tensor([self.generate_atom_features(atom) for atom in mol.GetAtoms()], dtype=torch.float)
         edge_indices, edge_attrs = [], []

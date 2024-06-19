@@ -1,22 +1,22 @@
 import logging
 import warnings
-from pathlib import Path
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, List
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-import torch
-import wandb
-from dotenv import load_dotenv
-from omegaconf import DictConfig, OmegaConf
-from hydra.utils import instantiate as hydra_instantiate
 import pytorch_lightning as L
+import torch
+from dotenv import load_dotenv
+from hydra.utils import instantiate as hydra_instantiate
+from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning import seed_everything
-from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.loggers import WandbLogger
 
+import wandb
 from litgnn.data.data_module import LitDataModule
 from litgnn.nn.models.lit_model import LitGNNModel
-from litgnn.trainer.utils import profile_execution, pre_init_model_setup
+from litgnn.trainer.utils import pre_init_model_setup, profile_execution
 
 load_dotenv()
 warnings.filterwarnings("ignore")
@@ -56,9 +56,9 @@ def hydra_trainer(cfg: DictConfig, callbacks: Optional[List[Any]] = None) -> Run
     get_metrics = lambda callback_metrics: {
         k: v.item() for k, v in callback_metrics.items() if not k.endswith("loss")
     }
-    
+
     data_module = LitDataModule(
-        dataset_config=cfg.dataset, 
+        dataset_config=cfg.dataset,
         split=cfg.train.dataset.split,
         split_sizes=cfg.train.dataset.split_sizes,
         batch_size=cfg.train.batch_size

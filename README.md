@@ -27,11 +27,9 @@ Following datasets are currently supported,
 
 ## Get started
 
-### Create .env file
-
 Create a `.env` file similar to [.env.example](.env.example) file, and fill out the values for each variables in the `.env` file.
 
-### Install LitGNN
+### 🚀 Installation
 
 > \[!Note\]
 > The following shell script will create a conda env named `litgnn` and install the necessary dependencies.
@@ -43,10 +41,10 @@ bash scripts/setup_env.sh
 bash scripts/setup_env.sh cu118
 ```
 
-## Training recipes
+## 💻 Training recipes
 
 Browse all training recipes [here](./examples).
 
-## License
+## 📜 License
 
 LitGNN is released under the [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) license. See the [LICENSE](LICENSE) file for details.

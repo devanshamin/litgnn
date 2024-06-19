@@ -1,7 +1,7 @@
 # Therapeutic Data Commons (TDC) ADMET Benchmark
 
 > \[!Note\]
-> Check out the following runs' output presented as a [W&B report](https://api.wandb.ai/links/damin/f6iwfonl). 
+> Check out the following runs' output presented as a [W&B report](https://api.wandb.ai/links/damin/f6iwfonl).
 
 ## Solubility AqSolDB
 
@@ -19,7 +19,7 @@ python ./litgnn/train.py \
 <summary>View the hydra config that is passed to the trainer</summary>
 
 ```yaml
-dataset:                                                                   
+dataset:
     save_dir: .cache
     pre_transform:
         _target_: litgnn.nn.models.cmpnn.featurization.FeaturesGenerator
@@ -123,7 +123,7 @@ python ./litgnn/train.py \
 <summary>View the hydra config that is passed to the trainer</summary>
 
 ```yaml
-dataset:                                                                   
+dataset:
     save_dir: .cache
     pre_transform:
         _target_: litgnn.nn.models.cmpnn.featurization.FeaturesGenerator
@@ -232,7 +232,7 @@ python ./litgnn/train.py \
 <summary>View the hydra config that is passed to the trainer</summary>
 
 ```yaml
-dataset:                                                                   
+dataset:
     save_dir: .cache
     pre_transform:
         _target_: litgnn.nn.models.cmpnn.featurization.FeaturesGenerator

@@ -2,16 +2,16 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-import torch
-import optuna
-from optuna.trial import TrialState
-from optuna.pruners import SuccessiveHalvingPruner
-from omegaconf import DictConfig, OmegaConf
 import hydra
+import torch
 from hydra.core.hydra_config import HydraConfig
 from hydra.utils import instantiate as hydra_instantiate
 from hydra_plugins.hydra_optuna_sweeper.optuna_sweeper import OptunaSweeper
+from omegaconf import DictConfig, OmegaConf
+from optuna.pruners import SuccessiveHalvingPruner
+from optuna.trial import TrialState
 
+import optuna
 from litgnn.trainer.optuna import OptunaObjective
 
 logger = logging.getLogger(__name__)
@@ -29,14 +29,14 @@ def get_default_storage(cfg: DictConfig) -> str:
 
 @hydra.main(version_base="1.3.2", config_path="conf", config_name="config")
 def main(cfg: DictConfig) -> Optional[float]:
-    
+
     # Resolve all variable interpolations
     OmegaConf.resolve(cfg)
 
     hydra_config = HydraConfig.get()
     sweeper = hydra_config.sweeper
     optuna_sweeper: OptunaSweeper = hydra_instantiate(sweeper)
-    
+
     objective = OptunaObjective(cfg, optuna_sweeper)
     storage = sweeper.storage or get_default_storage(cfg)
     sampler = hydra_instantiate(sweeper.sampler)

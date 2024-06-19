@@ -1,8 +1,8 @@
+import logging
 import os
 import random
-import logging
-from typing import Dict, Set, Tuple
 from multiprocessing import Pool
+from typing import Dict, Set, Tuple
 
 from rdkit import Chem
 from rdkit.Chem.Scaffolds import MurckoScaffold
@@ -12,9 +12,9 @@ logger = logging.getLogger()
 
 
 def _get_scaffold(smiles: str, include_chirality: bool) -> str:
-    
+
     return MurckoScaffold.MurckoScaffoldSmiles(
-        mol=Chem.MolFromSmiles(smiles), 
+        mol=Chem.MolFromSmiles(smiles),
         includeChirality=include_chirality
     )
 
@@ -30,18 +30,18 @@ def get_scaffold_to_indices(dataset: Dataset, include_chirality: bool = False) -
 
 
 def scaffold_split(
-    dataset: Dataset, 
+    dataset: Dataset,
     split_sizes: Tuple[int] = (0.8, 0.1, 0.1),
-    seed: int = 42, 
+    seed: int = 42,
     balanced: bool = False,
     verbose: bool = False
 ) -> Dict[str, Dataset]:
-    
+
     train_size, val_size, test_size = (int(sz * len(dataset)) for sz in split_sizes)
     scaffold_to_indices = get_scaffold_to_indices(dataset)
 
     index_sets = list(scaffold_to_indices.values())
-    if balanced:  
+    if balanced:
         # Put indexes that's bigger than half of the val/test size into train
         # and rest indexes randomly
         big_index_sets, small_index_sets = [], []
@@ -54,10 +54,10 @@ def scaffold_split(
         random.shuffle(big_index_sets)
         random.shuffle(small_index_sets)
         index_sets = big_index_sets + small_index_sets
-    else:  
+    else:
         # Sort from largest to smallest scaffold sets
         index_sets = sorted(index_sets, key=len, reverse=True)
-    
+
     train_indices, val_indices, test_indices = [], [], []
     train_scaffold_count = val_scaffold_count = test_scaffold_count = 0
     for index_set in index_sets:
@@ -75,7 +75,7 @@ def scaffold_split(
         val=dataset.index_select(val_indices),
         test=dataset.index_select(test_indices)
     )
-    
+
     if verbose:
         logger.info(
             f'Total scaffolds = {len(scaffold_to_indices):,} | '
@@ -85,5 +85,5 @@ def scaffold_split(
             f'\nTotal samples = {len(dataset):,} |',
             " | ".join(f'{s.capitalize()} set = {len(d):,}' for s, d in splits.items())
         )
-    
+
     return splits

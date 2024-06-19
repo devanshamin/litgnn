@@ -1,7 +1,6 @@
 import pytest
-from omegaconf import OmegaConf
 from hydra import compose, initialize_config_module
-
+from omegaconf import OmegaConf
 
 BIOGEN_DATASETS = [
     ("biogen", "hlm", {"dataset_name": "HLM", "num_classes": 1, "group_key": "biogen", "dataset_type": "custom", "task": {"task_type": "regression"}}),
@@ -42,17 +41,17 @@ def test_dataset_config_excluding_metrics(dir_name, dataset_name, expected_confi
         dataset_cfg["task"].pop("metrics")
         dataset_cfg.pop("save_dir", None)
         dataset_cfg.pop("pre_transform", None)
-        
+
         # Build the expected config
         if "dataset_name" not in expected_config:
             expected_config["dataset_name"] = dataset_name
         task_config = expected_config["task"]
         if task_config["task_type"] in ("binary_classification", "multilabel_classification"):
-            loss = "BCEWithLogitsLoss" 
+            loss = "BCEWithLogitsLoss"
         elif task_config["task_type"] == "multiclass_classification":
             loss = "CrossEntropyLoss"
         elif task_config["task_type"] == "regression":
             loss = "MSELoss"
-        task_config["loss"] = {"_target_": f"torch.nn.{loss}"} 
+        task_config["loss"] = {"_target_": f"torch.nn.{loss}"}
 
         assert dataset_cfg == expected_config

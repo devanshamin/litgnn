@@ -2,12 +2,12 @@ import copy
 import logging
 from typing import Optional
 
-import torch
-import numpy as np
 import hydra
-from omegaconf import DictConfig
+import numpy as np
+import torch
 from hydra.core.hydra_config import HydraConfig
 from hydra.types import RunMode
+from omegaconf import DictConfig
 
 from litgnn.trainer.hydra_trainer import hydra_trainer
 
@@ -27,7 +27,7 @@ def main(cfg: DictConfig) -> Optional[float]:
         # Ignore `cfg.train.num_seed_runs`
         out = hydra_trainer(cfg)
         return out.val_loss # For hydra optuna sweep
-    
+
     metrics = dict(train={}, val={}, test={})
     start_seed = cfg.train.seed
     for i in range(start_seed, start_seed + cfg.train.num_seed_runs):
@@ -37,18 +37,18 @@ def main(cfg: DictConfig) -> Optional[float]:
         for k, v in out.metrics.items():
             split = k.split("_")[0]
             metrics[split].setdefault(k, []).append(v)
-    
+
     for result in metrics.values():
         for metric, value in result.items():
             logger.info(
                 "{}: {} ± {}".format(
-                    metric.capitalize(), 
-                    round(np.mean(value), 3), 
+                    metric.capitalize(),
+                    round(np.mean(value), 3),
                     round(np.std(value), 3)
                 )
             )
 
 
 if __name__ == "__main__":
-    
+
     main()

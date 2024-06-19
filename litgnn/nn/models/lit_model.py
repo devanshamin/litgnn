@@ -1,14 +1,14 @@
 from typing import Dict
 
-from torch import Tensor
 import pytorch_lightning as L
-from torch_geometric.data import Batch
-from omegaconf import DictConfig
 from hydra.utils import instantiate as hydra_instantiate
+from omegaconf import DictConfig
+from torch import Tensor
+from torch_geometric.data import Batch
 
 
 class LitGNNModel(L.LightningModule):
-    
+
     def __init__(self, config: DictConfig) -> None:
 
         super().__init__()
@@ -21,11 +21,11 @@ class LitGNNModel(L.LightningModule):
                 setattr(self, f"{step}_{metric}", hydra_instantiate(v))
 
     def configure_optimizers(self) -> Dict:
-        
+
         optimizer = hydra_instantiate(
-            self.config.train.optimizer, 
-            params=self.parameters(), 
-            _recursive_=False, 
+            self.config.train.optimizer,
+            params=self.parameters(),
+            _recursive_=False,
             _convert_="all"
         )
         lr_scheduler = hydra_instantiate(self.config.train.scheduler, optimizer=optimizer, _convert_="all")
@@ -34,14 +34,14 @@ class LitGNNModel(L.LightningModule):
     def forward(self, batch: Batch) -> Tensor:
 
         return self.model(
-            x=batch.x, 
-            edge_index=batch.edge_index, 
+            x=batch.x,
+            edge_index=batch.edge_index,
             edge_attr=batch.edge_attr,
             batch=batch.batch
         )
 
     def training_step(self, batch, batch_idx: int) -> Tensor:
-        
+
         preds = self(batch)
         return self._calculate_loss_and_metrics(preds, target=batch.y, step="train")
 
@@ -50,7 +50,7 @@ class LitGNNModel(L.LightningModule):
         self._log_and_reset_metrics(step="train", logger=True)
 
     def validation_step(self, batch, batch_idx: int) -> Tensor:
-        
+
         preds = self(batch)
         return self._calculate_loss_and_metrics(preds, target=batch.y, step="val")
 
@@ -59,28 +59,28 @@ class LitGNNModel(L.LightningModule):
         self._log_and_reset_metrics(step="val", logger=True)
 
     def test_step(self, batch, batch_idx: int) -> Tensor:
-        
+
         preds = self(batch)
         return self._calculate_loss_and_metrics(preds, target=batch.y, step="test")
-    
+
     def on_test_epoch_end(self) -> None:
 
         self._log_and_reset_metrics(step="test", logger=True)
-    
+
     def _calculate_loss_and_metrics(
-        self, 
-        preds: Tensor, 
-        target: Tensor, 
+        self,
+        preds: Tensor,
+        target: Tensor,
         step: str,
     ) -> Tensor:
 
         loss = self.loss_func(preds, target)
         self.log(
-            f"{step}_loss", 
-            loss.item(), 
-            on_step=False, 
-            on_epoch=True, 
-            logger=True, 
+            f"{step}_loss",
+            loss.item(),
+            on_step=False,
+            on_epoch=True,
+            logger=True,
             prog_bar=step in ("train", "val"),
             batch_size=preds.size(0)
         )
@@ -90,7 +90,7 @@ class LitGNNModel(L.LightningModule):
             func = getattr(self, f"{step}_{metric}")
             func(preds, target) # Accumulate metrics
         return loss
-    
+
     def _log_and_reset_metrics(self, step: str, **log_kwargs) -> None:
 
         for metric in self.config.dataset.task.metrics:

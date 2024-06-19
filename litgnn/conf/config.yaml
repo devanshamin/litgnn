@@ -7,7 +7,7 @@ defaults:
 
 dataset:
   save_dir: .cache
-  pre_transform: 
+  pre_transform:
     _target_: litgnn.nn.models.cmpnn.featurization.FeaturesGenerator
     atom_messages: False
 
@@ -24,7 +24,7 @@ train:
   seed: 1
   batch_size: 32
 
-  dataset: 
+  dataset:
     split: scaffold_split
     split_sizes: [0.8, 0.1, 0.1]
     num_node_features: ???

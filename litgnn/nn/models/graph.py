@@ -1,6 +1,6 @@
 import torch
-from torch import Tensor
 import torch.nn as nn
+from torch import Tensor
 from torch_geometric.nn import pool as global_pooling
 from torch_geometric.typing import Adj
 
@@ -22,7 +22,7 @@ class GraphLevelGNN(nn.Module):
         pooling_func_name: str = "global_mean_pool",
         **model_kwargs
     ) -> None:
-        
+
         super().__init__()
         assert hasattr(global_pooling, pooling_func_name), "Invalid pooling function!"
         self.pooling = getattr(global_pooling, pooling_func_name)
@@ -41,13 +41,13 @@ class GraphLevelGNN(nn.Module):
         if num_ffn_layers > 1:
             for _ in range(num_ffn_layers - 1):
                 ffns.extend([
-                    nn.Dropout(p=dropout), 
+                    nn.Dropout(p=dropout),
                     nn.Linear(hidden_channels, hidden_channels),
-                    nn.ReLU(), 
+                    nn.ReLU(),
                 ])
         ffns.extend([nn.Dropout(p=dropout), nn.Linear(hidden_channels, out_channels)])
         self.seq_out = nn.Sequential(*ffns)
-    
+
         self.apply(self._init_weights)
 
     def _init_weights(self, module) -> None:
@@ -58,9 +58,9 @@ class GraphLevelGNN(nn.Module):
                 torch.nn.init.constant_(module.bias, 0)
 
     def forward(
-        self, 
-        x: Tensor, 
-        edge_index: Adj, 
+        self,
+        x: Tensor,
+        edge_index: Adj,
         edge_attr: Tensor,
         batch: Tensor
     ) -> Tensor:

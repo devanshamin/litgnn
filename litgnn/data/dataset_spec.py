@@ -1,13 +1,13 @@
-import sys
 import inspect
+import sys
 from pathlib import Path
+from typing import ClassVar, Dict, List, Optional, Tuple, Union
 from zipfile import ZipFile
-from typing import Dict, Optional, Union, List, Tuple, ClassVar
 
 import requests
-from tqdm import tqdm
+from pydantic import BaseModel, computed_field, field_validator
 from torch_geometric.data import download_url
-from pydantic import BaseModel, field_validator, computed_field
+from tqdm import tqdm
 
 
 def get_available_groups() -> Dict[str, "CustomDatasetSpec"]:
@@ -34,18 +34,18 @@ class CustomDatasetSpec(BaseModel):
         if not v and not values.get("file_path"):
             raise ValueError("Both 'url' and 'file_path' cannot be empty.")
         return v
-    
+
     @computed_field
     @property
     def display_name(self) -> str:
-        
+
         return self.dataset_name.upper()
 
 
 class BiogenDatasetSpec(CustomDatasetSpec):
     """Biogen ADME datasets. Futher information can be found \
     [here](https://devanshamin.netlify.app/posts/molecule-property-prediction-datasets/).
-    
+
     Following are the individual tasks within the dataset:
     - `HLM`: Human Liver Microsomal stability
     - `MDR1_ER`: MDR1-MDCK Efflux Ratio
@@ -65,7 +65,7 @@ class BiogenDatasetSpec(CustomDatasetSpec):
 
     @field_validator("dataset_name", mode="after")
     def check_dataset_name(cls, v, values):
-        
+
         if v not in cls.datasets:
             raise ValueError(f"Invalid dataset name! Please select one from {cls.datasets}")
         return v
@@ -77,8 +77,8 @@ class BiogenDatasetSpec(CustomDatasetSpec):
         return self.dataset_name
 
     def download_data(self, dir_path: str) -> None:
-        
-        # The dataset will be saved as follows, 
+
+        # The dataset will be saved as follows,
         # - biogen -> HLM -> train_val.csv
         # - biogen -> HLM -> test.csv
         # where, HLM is the dataset name
@@ -100,11 +100,11 @@ class TDCADMETDatasetSpec(CustomDatasetSpec):
     target_col_idx: int = -1
     # URL is created from TDC GitHub repo,
     # Base URL - https://github.com/mims-harvard/TDC/blob/905bd6fb8fd92b25ce3c80dddeba562f95a135a2/tdc/utils/load.py#L249
-    # ID - https://github.com/mims-harvard/TDC/blob/905bd6fb8fd92b25ce3c80dddeba562f95a135a2/tdc/metadata.py#L888 
+    # ID - https://github.com/mims-harvard/TDC/blob/905bd6fb8fd92b25ce3c80dddeba562f95a135a2/tdc/metadata.py#L888
     url: str = "https://dataverse.harvard.edu/api/access/datafile/4426004"
     # Each dataset has it's own directory with `train_val.csv` and `test.csv` files.
     file_name: List[str] = ["train_val.csv", "test.csv"]
-    
+
     # List of datasets under the ADMET group
     datasets: ClassVar[Tuple[str]] = (
         "ames",
@@ -137,7 +137,7 @@ class TDCADMETDatasetSpec(CustomDatasetSpec):
         if v not in cls.datasets:
             raise ValueError(f"Invalid dataset name! Please select one from {cls.datasets}")
         return v
-    
+
     def download_data(self, dir_path: str) -> None:
 
         # Adapted from https://github.com/mims-harvard/TDC/blob/905bd6fb8fd92b25ce3c80dddeba562f95a135a2/tdc/utils/load.py#L159C1-L180C25

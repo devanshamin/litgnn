@@ -1,5 +1,5 @@
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 import pytest
 from omegaconf import DictConfig
@@ -8,7 +8,7 @@ from litgnn.data.utils import load_dataset
 
 
 @pytest.mark.parametrize(
-    "config", 
+    "config",
     (
         dict(dataset_type="custom", group_key="tdc", dataset_name="ames", pre_transform=dict(_target_="litgnn.nn.models.cmpnn.featurization.FeaturesGenerator", atom_messages=False)),
         dict(dataset_type="custom", group_key="tdc", dataset_name="bbb_martins", pre_transform=dict(_target_="litgnn.nn.models.cmpnn.featurization.FeaturesGenerator", atom_messages=True)),

@@ -29,7 +29,7 @@ where,
 <summary>View the hydra config that is passed to the trainer</summary>
 
 ```yaml
-dataset:                                                                   
+dataset:
     save_dir: .cache
     pre_transform:
         _target_: litgnn.nn.models.cmpnn.featurization.FeaturesGenerator
@@ -301,7 +301,7 @@ python ./litgnn/train.py \
 <summary>View the hydra config that is passed to the trainer</summary>
 
 ```yaml
-dataset:                                                                   
+dataset:
     save_dir: .cache
     pre_transform:
         _target_: litgnn.nn.models.cmpnn.featurization.FeaturesGenerator
@@ -381,4 +381,3 @@ train:
         steps_per_epoch: 125
 ```
 </details>
-

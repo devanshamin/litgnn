@@ -2,9 +2,10 @@ import logging
 import time
 from typing import Callable
 
-from litgnn.nn import models
 from omegaconf import DictConfig
+
 from litgnn.data.data_module import LitDataModule
+from litgnn.nn import models
 
 logger = logging.getLogger()
 
@@ -17,7 +18,7 @@ def profile_execution(func: Callable) -> Callable:
         execution_time = time.perf_counter() - start_time
         logger.info(f"Function '{func.__name__}' executed in {execution_time:.4f} seconds.")
         return result
-    
+
     return wrapper
 
 

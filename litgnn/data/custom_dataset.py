@@ -1,15 +1,16 @@
+import hashlib
 import os
 import os.path as osp
 import re
-import hashlib
 from pathlib import Path
-from typing import Callable, Dict, Optional, Union, List
+from typing import Callable, Dict, List, Optional, Union
 
 import torch
-from torch_geometric.data import InMemoryDataset, download_url, extract_gz, extract_zip
+from torch_geometric.data import (InMemoryDataset, download_url, extract_gz,
+                                  extract_zip)
 from torch_geometric.utils import from_smiles
 
-from litgnn.data.dataset_spec import get_available_groups, CustomDatasetSpec
+from litgnn.data.dataset_spec import CustomDatasetSpec, get_available_groups
 
 
 class CustomDataset(InMemoryDataset):
@@ -25,7 +26,7 @@ class CustomDataset(InMemoryDataset):
         pre_filter: Optional[Callable] = None,
         force_reload: bool = False,
     ) -> None:
-        
+
         groups = get_available_groups()
         dataset_spec_cls = groups.get(group_key)
         assert dataset_spec_cls is not None, f"Invalid group key! Please select one from {list(groups)}."
@@ -33,12 +34,12 @@ class CustomDataset(InMemoryDataset):
         self._split_idx = None # Used when the dataset provides separate files for training and testing
 
         super().__init__(root, transform, pre_transform, pre_filter, force_reload=force_reload)
-        
+
         # Load saved dataset
         self.load(self.processed_paths[0])
         if len(self.processed_paths) > 1:
             self._split_idx = torch.load(self.processed_paths[1])
-    
+
     @property
     def dataset_name(self) -> str:
 
@@ -51,17 +52,17 @@ class CustomDataset(InMemoryDataset):
 
     @property
     def raw_dir(self) -> str:
-        
+
         return osp.join(self.root, self.dataset_spec.group_key, "raw")
 
     @property
     def processed_dir(self) -> str:
-        
+
         return osp.join(self.root, self.dataset_spec.group_key, "processed", self.dataset_name)
 
     @property
     def raw_file_names(self) -> Union[str, List[str]]:
-        
+
         return self.dataset_spec.file_name
 
     @property
@@ -91,7 +92,7 @@ class CustomDataset(InMemoryDataset):
         with open(file_path, "r") as f:
             dataset = f.read().split("\n")[1:-1]
             dataset = [x for x in dataset if len(x) > 0]  # Filter empty lines.
-        
+
         data_list = []
         for line in dataset:
             line = re.sub(r'\".*\"', '', line)  # Replace ".*" strings.
@@ -114,7 +115,7 @@ class CustomDataset(InMemoryDataset):
                 data = self.pre_transform(data)
 
             data_list.append(data)
-        
+
         return data_list
 
     def process(self) -> None:
@@ -137,7 +138,7 @@ class CustomDataset(InMemoryDataset):
         self.save(data_list, self.processed_paths[0])
 
     def __repr__(self) -> str:
-        
+
         return f"{self.dataset_spec.display_name}({len(self)})"
 
     @staticmethod

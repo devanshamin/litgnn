@@ -17,7 +17,7 @@ class NoamLRScheduler(_LRScheduler):
     course of the remaining total_steps - warmup_steps (where total_steps =
     total_epochs * steps_per_epoch). This is roughly based on the learning rate
     schedule from Attention is All You Need, section 5.3 (https://arxiv.org/abs/1706.03762).
-    
+
     Args:
         optimizer: A PyTorch optimizer.
         warmup_epochs: The number of epochs during which to linearly increase the learning rate.
@@ -38,7 +38,7 @@ class NoamLRScheduler(_LRScheduler):
         max_lr: List[float],
         final_lr: List[float]
     ) -> None:
-        
+
         grps = (optimizer.param_groups, warmup_epochs, total_epochs, init_lr, max_lr, final_lr)
         assert len(set(map(len, grps))) == 1
 
@@ -63,7 +63,7 @@ class NoamLRScheduler(_LRScheduler):
 
     def get_lr(self) -> List[float]:
         """Gets a list of the current learning rates."""
-        
+
         return list(self.lr)
 
     def step(self, current_step: int = None):

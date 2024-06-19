@@ -59,7 +59,7 @@ check_dataset_group_key "$DATASET_GROUP_KEY"
 check_run_type "$RUN_TYPE"
 set_dataset_split_sizes "$DATASET_GROUP_KEY"
 
-# Iterate through all dataset *.yaml files 
+# Iterate through all dataset *.yaml files
 dir_path="litgnn/conf/dataset/$DATASET_GROUP_KEY"
 for file_path in "$dir_path"/*.yaml; do
     DATASET_NAME=$(basename "$file_path" .yaml)
